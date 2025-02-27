@@ -1,0 +1,17 @@
+<view class="chat-container">
+  <view class="message-list">
+    <block wx:for="{{messages}}" wx:key="index">
+      <view class="message-item {{item.isUser ? 'user-message' : 'bot-message'}}">
+        <image class="avatar" src="{{item.avatar}}" style="{{item.isUser ? 'order: 2;' : 'order: 1;'}}" />
+        <view class="message-content" style="{{item.isUser ? 'order: 1;' : 'order: 2;'}}">
+          <text class="nickname">{{item.isUser ? userInfo.nickName : 'Bot'}}</text>
+          <view class="message">{{item.text}}</view>
+        </view>
+      </view>
+    </block>
+  </view>
+  <view class="input-area">
+    <input class="input-box" placeholder="Type a message..." bindinput="onInputChange" value="{{inputText}}" />
+    <button class="send-button" bindtap="sendMessage">Send</button>
+  </view>
+</view> 
