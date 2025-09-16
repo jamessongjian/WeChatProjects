@@ -1,0 +1,80 @@
+/**app.wxss**/
+@import "utils/fontawesome.wxss";
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 200rpx 0;
+  box-sizing: border-box;
+} 
+
+/* 全局样式应该放在这里 */
+
+/**小程序全局样式**/
+
+/* 表演卡片样式修复 - 优先级高 */
+.info-card[data-template="performanceTemplate"] .card-info {
+  gap: 1rpx !important; 
+  justify-content: flex-start !important;
+}
+
+.info-card[data-template="performanceTemplate"] .project-description {
+  margin: 1rpx 0 !important;
+  line-height: 1.2 !important; 
+  max-height: 48rpx !important;
+}
+
+.info-card[data-template="performanceTemplate"] .info-item {
+  font-size: 18rpx !important;
+  line-height: 1.2 !important;
+}
+
+.info-card[data-template="performanceTemplate"] .basic-info {
+  margin-bottom: 1rpx !important;
+  line-height: 1.2 !important;
+}
+
+.info-card[data-template="performanceTemplate"] .info-row {
+  min-height: 20rpx !important;
+  margin-bottom: 1rpx !important;
+}
+
+.info-card[data-template="performanceTemplate"] .description-text {
+  font-size: 18rpx !important;
+  line-height: 1.2 !important;
+}
+
+.info-card[data-template="performanceTemplate"] .info-icon {
+  font-size: 18rpx !important;
+  margin-right: 2rpx !important;
+}
+
+.info-card[data-template="performanceTemplate"] .show-times-container {
+  margin: 1rpx 0 !important;
+}
+
+.info-card[data-template="performanceTemplate"] .show-times {
+  min-height: 20rpx !important;
+  margin-bottom: 1rpx !important;
+  gap: 2rpx !important;
+}
+
+.info-card[data-template="performanceTemplate"] .show-times-label {
+  font-size: 18rpx !important;
+  line-height: 1.2 !important;
+}
+
+.info-card[data-template="performanceTemplate"] .show-time-tags {
+  gap: 2rpx !important;
+  height: 20rpx !important;
+}
+
+.info-card[data-template="performanceTemplate"] .show-time-tag {
+  font-size: 18rpx !important;
+  height: 20rpx !important;
+  line-height: 20rpx !important;
+  padding: 0 4rpx !important;
+} 

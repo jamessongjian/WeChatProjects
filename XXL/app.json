@@ -1,0 +1,75 @@
+{
+  "pages": [
+    "pages/map/map",
+    "pages/index/index",
+    "pages/screen/screen",
+    "pages/profile/profile",
+    "pages/favorites/favorites",
+    "pages/plan/plan",
+    "pages/planDetail/planDetail",
+    "pages/details/details"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "环球影城",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#999",
+    "selectedColor": "#07C160",
+    "backgroundColor": "#fff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "聊天"
+      },
+      {
+        "pagePath": "pages/screen/screen",
+        "text": "大屏"
+      },
+      {
+        "pagePath": "pages/map/map",
+        "text": "地图"
+      },
+      {
+        "pagePath": "pages/plan/plan",
+        "text": "规划"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于地图定位导航"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+  "privacyAgreementUrl": "privacy-policy.md",
+  "request": {
+    "domain": ["https://api.coze.cn", "https://apis.map.qq.com"]
+  },
+  "usingComponents": {
+    "mp-html": "mp-html"
+  },
+  "requiredBackgroundModes": ["location"],
+  "useUserProfile": {
+    "desc": "你的昵称和头像将用于展示个人信息"
+  },
+  "shareAppMessage": {
+    "mode": "everyone"
+  },
+  "shareTimeline": {
+    "mode": "everyone"
+  }
+}

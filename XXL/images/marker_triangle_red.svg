@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="30px" height="40px" viewBox="0 0 30 40" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>红色三角形标记</title>
+    <g id="红色三角形" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M15,5 L25,23 L5,23 Z" fill="#e53935"></path>
+        <path d="M15,5 L5,23 L15,5 Z" fill="rgba(0,0,0,0.1)"></path>
+    </g>
+</svg> 

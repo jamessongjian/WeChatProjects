@@ -1,0 +1,618 @@
+<wxs module="performanceStyle">
+module.exports = {}
+</wxs>
+
+<view class="map-container">
+  <!-- 游乐场选择器 - 添加在顶部 -->
+  <view class="park-selector">
+    <picker bindchange="onParkChange" value="{{currentParkIndex}}" range="{{parks}}" range-key="name">
+      <view class="park-picker">
+        <text class="current-park">{{currentPark}}</text>
+        <text class="fa fa-chevron-down picker-arrow"></text>
+      </view>
+    </picker>
+  </view>
+  
+  <map
+    id="map"
+    class="map"
+    latitude="{{latitude}}"
+    longitude="{{longitude}}"
+    markers="{{visibleMarkers}}"
+    scale="{{scale}}"
+    show-location
+    catchmarkertap="markertap"
+    catchlabeltap="markertap"
+    catchcallouttap="callouttap"
+    bindtap="handleMapTap"
+    custom-callout-marker-ids="{{customCalloutMarkerIds}}"
+    style="width: 100%; height: 100%;"
+    enable-rotate
+    enable-zoom
+    enable-scroll
+    enable-3D
+    enable-traffic
+    bindregionchange="onRegionChange"
+    enable-auto-fit="false"
+    enable-adjustment="false"
+  >
+    <cover-view slot="callout">
+      <!-- 霸天虎过山车专用自定义气泡 - 新样式：左侧大数字，右侧项目名称 -->
+      <cover-view marker-id="999" class="transformers-callout-horizontal">
+        <cover-view class="queue-time-part" data-wait-time="{{transformersWaitStatus}}">
+          <cover-view class="queue-time-number">{{transformersQueueTime || 120}}</cover-view>
+          <cover-view class="queue-time-unit">分钟</cover-view>
+        </cover-view>
+        <cover-view class="attraction-name-part">
+          <cover-view class="attraction-name">霸天虎过山车</cover-view>
+        </cover-view>
+      </cover-view>
+      
+      <!-- 单个标记点自定义气泡 -->
+      <block wx:for="{{visibleMarkers}}" wx:key="id">
+        <cover-view wx:if="{{!item.customCallout.content.isCluster && item.id !== 999}}" 
+                   marker-id="{{item.id}}" 
+                   class="custom-callout-horizontal">
+          <cover-view class="queue-time-part {{item.customCallout.content.colorTheme || item.colorTheme || 'gray'}}">
+            <cover-view class="queue-time-number">
+              <block wx:if="{{item.waitTime === '关闭'}}">关闭</block>
+              <block wx:elif="{{item.waitTime === '已结束'}}">结束</block>
+              <block wx:elif="{{item.waitTime === '常驻'}}">常驻</block>
+              <block wx:else>{{item.waitTime}}</block>
+            </cover-view>
+            <cover-view class="queue-time-unit">
+              <block wx:if="{{item.waitUnit === '分钟'}}">分钟</block>
+              <block wx:elif="{{item.waitUnit === '演出'}}">演出</block>
+              <block wx:elif="{{item.waitUnit === '状态'}}">状态</block>
+            </cover-view>
+          </cover-view>
+          <cover-view class="attraction-name-part">
+            <cover-view class="attraction-name">{{item.name}}</cover-view>
+          </cover-view>
+        </cover-view>
+      </block>
+
+      <!-- 聚合点自定义气泡 -->
+      <block wx:for="{{visibleMarkers}}" wx:key="id">
+        <cover-view wx:if="{{item.customCallout.content.isCluster}}" 
+                   marker-id="{{item.id}}" 
+                   class="cluster-callout">
+          <cover-view class="cluster-header">
+            <cover-view class="cluster-location">{{item.customCallout.content.location}}</cover-view>
+            <cover-view class="cluster-count">{{item.customCallout.content.totalCount}}个项目</cover-view>
+          </cover-view>
+          <cover-view class="cluster-content">
+            <block wx:for="{{item.customCallout.content.markers}}" wx:for-item="marker" wx:key="name">
+              <cover-view class="cluster-item">
+                <cover-view class="marker-name">{{marker.name}}</cover-view>
+                <cover-view class="wait-time {{marker.waitTime === '常驻' ? 'green' : (marker.waitTime === '关闭' || marker.waitTime === '已结束' || marker.waitTime === '无场次' || marker.waitTime === '已满') ? 'gray' : (marker.waitUnit === '分钟' && marker.waitTime < 30) ? 'green' : (marker.waitUnit === '分钟' && marker.waitTime < 60) ? 'orange' : (marker.waitUnit === '分钟' || (marker.waitUnit === '小时' && marker.waitTime > 1)) ? 'red' : (marker.waitUnit === '小时' && marker.waitTime <= 1) ? 'orange' : 'gray'}}">
+                  {{marker.waitTime !== undefined ? marker.waitTime : ''}}{{marker.waitUnit || ''}}
+                </cover-view>
+              </cover-view>
+            </block>
+            <cover-view wx:if="{{item.customCallout.content.totalCount > 5}}" class="more-markers">
+              ...等共{{item.customCallout.content.totalCount}}个项目 ▼
+            </cover-view>
+          </cover-view>
+        </cover-view>
+      </block>
+    </cover-view>
+  </map>
+  
+     <!-- 筛选按钮区域 - 添加容器点击事件阻止穿透 -->
+         <view class="filter-container" catchtap="handleFilterContainerTap">
+         <!-- 第一行筛选按钮 -->
+         <view class="filter-row">
+           <block wx:for="{{filterButtons}}" wx:key="type">
+             <view 
+               class="filter-button {{activeFilter === item.type && !item.isToggle ? 'active' : ''}} {{item.isToggle && filterClosed ? 'active' : ''}}" 
+               bindtap="handleFilter" 
+               data-type="{{item.type}}"
+             >{{item.text}}</view>
+           </block>
+         </view>
+         
+         <!-- 第二行筛选按钮 -->
+         <view class="filter-row filter-row-second">
+           <view 
+             class="filter-button nearby-button" 
+             bindtap="handleNearby"
+           >我的附近</view>
+           <view 
+             class="filter-button {{filterClosed ? 'active' : ''}}" 
+             bindtap="handleToggleHideClosed"
+           >隐藏已关闭</view>
+           <view 
+             class="filter-button refresh-button" 
+             bindtap="handleRefresh"
+           >刷新</view>
+         </view>
+       </view>
+
+  <!-- 位置和刷新按钮 -->
+  <view class="location-button" bindtap="handleMoveToLocation">
+    <text class="fa fa-location-arrow"></text>
+  </view>
+  <view class="refresh-button" bindtap="handleRefresh">
+    <text class="fa fa-refresh"></text>
+  </view>
+
+  <!-- 遮罩层 + 信息卡片 -->
+  <view class="card-overlay {{showCard ? 'show' : ''}}" wx:if="{{cardInfo}}" catchtap="handleCloseCard">
+    <!-- 聚合卡片模式 - 完全独立的卡片结构 -->
+    <view wx:if="{{cardInfo.isClusterCard}}" id="clusterCard" class="info-card cluster-info-card {{showCard ? 'show' : ''}}" catchtap="noop" catchtouchmove="noop">
+      <view class="cluster-card-content" catchtap="noop" catchtouchmove="noop">
+        <!-- 标题栏显示园区名称和项目数量 -->
+        <view class="cluster-card-header" catchtap="noop" catchtouchmove="noop">
+          <view class="cluster-card-title" catchtap="noop">
+            <text class="cluster-location-name">{{cardInfo.location}}</text>
+            <text class="cluster-count-badge">{{cardInfo.totalCount}}个项目</text>
+          </view>
+          <view class="cluster-card-close" catchtap="handleCardCloseButton">×</view>
+        </view>
+        
+        <!-- 聚合点卡片内容区域 -->
+        <view class="cluster-card-items-container" catchtap="noop" catchtouchmove="noop">
+          <!-- 聚合项目列表 -->
+          <scroll-view 
+            scroll-y="true" 
+            class="cluster-items-scroll" 
+            catchtap="noop"
+            enable-flex="true"
+            enhanced="true"
+            show-scrollbar="false"
+            bounce="{{true}}"
+            scroll-anchoring="{{true}}">
+            <view class="cluster-items-grid" catchtap="noop">
+              <block wx:for="{{cardInfo.clusterMarkers}}" wx:key="id">
+                <view class="cluster-grid-item" data-marker="{{item}}" catchtap="selectClusterItem">
+                  <view class="cluster-item-image-container">
+                    <image class="cluster-item-image" src="{{item.image}}" mode="aspectFill"></image>
+                    <!-- 等待时间标签 -->
+                    <view class="cluster-queue-tag {{item.waitUnit === '分钟' && item.waitTime >= 30 && item.waitTime < 60 ? 'orange-tag' : item.waitUnit === '分钟' && item.waitTime >= 60 ? 'red-tag' : item.waitTime === '常驻' ? 'green-tag' : item.waitTime === '关闭' || item.waitTime === '已结束' ? 'gray-tag' : item.waitUnit === '分钟' && item.waitTime < 30 ? 'green-tag' : 'gray-tag'}}">
+                      <text class="cluster-wait-time">{{item.waitTime}}</text>
+                      <text wx:if="{{item.waitUnit}}" class="cluster-wait-unit">{{item.waitUnit}}</text>
+                    </view>
+                    <!-- 类型标签 - 移到图片右下角 -->
+                    <view class="cluster-item-type-tag {{item.type === 'attraction' ? 'attraction-tag' : item.type === 'performance' || item.type === 'performances' ? 'performance-tag' : 'other-tag'}}">
+                      {{item.type === 'attraction' ? '游乐' : item.type === 'performance' || item.type === 'performances' ? '演出' : '其他'}}
+                    </view>
+                  </view>
+                  <view class="cluster-item-info">
+                    <view class="cluster-item-name">{{item.name}}</view>
+                    <view class="cluster-item-location">{{item.location}}</view>
+                  </view>
+                </view>
+              </block>
+            </view>
+          </scroll-view>
+          
+          <!-- 提示上拉查看更多 -->
+          <view class="cluster-pull-up-hint" style="position: sticky; bottom: 0; margin-top: -50rpx;">
+            <text class="pull-up-icon fa fa-angle-double-up"></text>
+            <text class="pull-up-text">上拉查看更多</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 普通信息卡片 - 完全独立结构 -->
+    <view wx:else id="infoCard" class="info-card {{showCard ? 'show' : ''}}" data-template="{{cardInfo.template}}" data-force-update="{{_forceUpdate}}" catchtap="noop">
+      <!-- 普通卡片标题 -->
+      <view class="card-header">
+        <view class="card-title">{{cardInfo.name}}</view>
+        <view class="close-button" catchtap="handleCardCloseButton">×</view>
+      </view>
+      
+      <!-- 基于模板动态渲染不同类型的卡片内容 -->
+      <block wx:if="{{cardInfo.template === 'attractionTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+            
+            <!-- 排队时间标签 - 使用colorTheme -->
+            <view class="queue-bookmark" 
+                  wx:if="{{cardInfo}}"
+                  style="background: {{cardInfo.colorTheme === 'green' ? 'linear-gradient(to right, rgba(83, 193, 120, 1) 0%, rgba(83, 193, 120, 0.85) 100%)' : cardInfo.colorTheme === 'orange' ? 'linear-gradient(to right, rgba(245, 166, 35, 1) 0%, rgba(245, 166, 35, 0.85) 100%)' : cardInfo.colorTheme === 'red' ? 'linear-gradient(to right, rgba(230, 67, 64, 1) 0%, rgba(230, 67, 64, 0.85) 100%)' : 'linear-gradient(to right, rgba(136, 136, 136, 1) 0%, rgba(136, 136, 136, 0.85) 100%)'}}"
+                  catchtap="noop">
+                <view class="bookmark-time">{{cardInfo.waitTime || '未知'}}</view>
+                <view class="bookmark-unit" wx:if="{{cardInfo.waitUnit}}">{{cardInfo.waitUnit}}</view>
+              </view>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 顶部状态标签区 -->
+            <view class="card-status" catchtap="noop">
+              <view class="status-tag flag-status-tag" 
+                    wx:for="{{cardInfo.flags}}" 
+                    wx:key="*this"
+                    catchtap="noop">
+                {{item}}
+              </view>
+            </view>
+            
+            <!-- 基本信息区域 -->
+            <view class="basic-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row" style="display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: space-between; width: 100%; min-height: 22rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" catchtap="noop">
+                <view class="info-item time-item" style="flex: 1 1 33%; max-width: 33%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-clock-o"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.openTime || '开放中'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item duration" style="flex: 1 1 25%; max-width: 25%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <icon type="waiting" size="12" class="duration-icon"></icon>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.duration || '未知'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item location" style="flex: 1 1 42%; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+            
+            <!-- 推荐查询 -->
+            <view class="query-suggestions" wx:if="{{cardInfo.suggestedQueries && cardInfo.suggestedQueries.length > 0}}" catchtap="noop">
+              <text class="query-icon fa fa-search"></text>
+              <view class="query-tags" catchtap="noop">
+                <view class="query-tag" 
+                      wx:for="{{cardInfo.suggestedQueries}}" 
+                      wx:key="*this" 
+                      wx:if="{{index < 3}}"
+                      catchtap="handleQueryClick"
+                      data-query="{{item}}">
+                  {{item}}
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 表演项目模板 -->
+      <block wx:elif="{{cardInfo.template === 'performanceTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+            
+            <!-- 排队时间标签 - 使用colorTheme -->
+            <view class="queue-bookmark" 
+                  wx:if="{{cardInfo}}"
+                  style="background: {{cardInfo.colorTheme === 'green' ? 'linear-gradient(to right, rgba(83, 193, 120, 1) 0%, rgba(83, 193, 120, 0.85) 100%)' : cardInfo.colorTheme === 'orange' ? 'linear-gradient(to right, rgba(245, 166, 35, 1) 0%, rgba(245, 166, 35, 0.85) 100%)' : cardInfo.colorTheme === 'red' ? 'linear-gradient(to right, rgba(230, 67, 64, 1) 0%, rgba(230, 67, 64, 0.85) 100%)' : 'linear-gradient(to right, rgba(136, 136, 136, 1) 0%, rgba(136, 136, 136, 0.85) 100%)'}}"
+                  catchtap="noop">
+              <view class="bookmark-time">{{cardInfo.waitTime || '未知'}}</view>
+              <view class="bookmark-unit" wx:if="{{cardInfo.waitUnit}}">{{cardInfo.waitUnit}}</view>
+            </view>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 顶部状态标签区 -->
+            <view class="card-status" catchtap="noop">
+              <view class="status-tag flag-status-tag" 
+                    wx:for="{{cardInfo.flags}}" 
+                    wx:key="*this"
+                    catchtap="noop">
+                {{item}}
+              </view>
+            </view>
+            
+            <!-- 基本信息区域 -->
+            <view class="basic-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row" style="display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: space-between; width: 100%; min-height: 22rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" catchtap="noop">
+                <view class="info-item time-item" style="flex: 1 1 33%; max-width: 33%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-clock-o"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.openTime || '暂无演出'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item duration" style="flex: 1 1 25%; max-width: 25%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <icon type="waiting" size="12" class="duration-icon"></icon>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.duration || '未知'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item location" style="flex: 1 1 42%; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+            
+            <!-- 表演场次信息 -->
+            <view class="show-times-container" wx:if="{{cardInfo.showTimes && cardInfo.showTimes.length > 0}}" catchtap="noop">
+              <view class="show-times" catchtap="noop">
+                <text class="show-times-label">最近场次: </text>
+                <view class="show-time-tags" catchtap="noop">
+                  <view class="show-time-tag {{item.isNext ? 'next-show' : ''}}" 
+                        wx:for="{{cardInfo.showTimes}}" 
+                        wx:key="index" 
+                        wx:if="{{index < 4}}"
+                        catchtap="noop">
+                    {{item.time}}{{item.isFull ? '(满)' : ''}}{{item.isNext ? '(下一场)' : ''}}
+                  </view>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 推荐查询 -->
+            <view class="query-suggestions" wx:if="{{cardInfo.suggestedQueries && cardInfo.suggestedQueries.length > 0}}" catchtap="noop">
+              <text class="query-icon fa fa-search"></text>
+              <view class="query-tags" catchtap="noop">
+                <view class="query-tag" 
+                      wx:for="{{cardInfo.suggestedQueries}}" 
+                      wx:key="*this" 
+                      wx:if="{{index < 3}}"
+                      catchtap="handleQueryClick"
+                      data-query="{{item}}">
+                  {{item}}
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 餐厅模板 -->
+      <block wx:elif="{{cardInfo.template === 'restaurantTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+            
+            <!-- 营业状态标签 - 类似游乐设施的排队时间标签 -->
+            <view class="queue-bookmark" 
+                  wx:if="{{cardInfo}}"
+                  style="background: linear-gradient(to right, rgba(83, 193, 120, 1) 0%, rgba(83, 193, 120, 0.85) 100%)"
+                  catchtap="noop">
+                <view class="bookmark-time">{{cardInfo.waitTime || '营业中'}}</view>
+                <view class="bookmark-unit">{{cardInfo.waitUnit || '状态'}}</view>
+            </view>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 顶部状态标签区 -->
+            <view class="card-status" catchtap="noop">
+              <view class="status-tag flag-status-tag" 
+                    wx:for="{{cardInfo.flags}}" 
+                    wx:key="*this"
+                    catchtap="noop">
+                {{item}}
+              </view>
+            </view>
+            
+            <!-- 基本信息区域 -->
+            <view class="basic-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; justify-content: flex-start !important; width: 100% !important; gap: 6rpx !important;" catchtap="noop">
+                <view class="info-item time-item" style="flex: 0 0 160rpx !important; width: 160rpx !important; min-width: 160rpx !important; max-width: 160rpx !important; white-space: nowrap !important; overflow: visible !important; display: flex !important; align-items: center !important;" catchtap="noop">
+                  <text class="info-icon fa fa-clock-o" style="margin-right: 4rpx !important; font-size: 22rpx !important;"></text>
+                  <text class="info-text" style="white-space: nowrap !important; font-size: 22rpx !important; overflow: visible !important;">{{cardInfo.openTime || '营业中'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee;"></view>
+                <view class="info-item cuisine" wx:if="{{cardInfo.cuisine}}" style="flex: 0 0 auto; min-width: 50rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-cutlery" style="margin-right: 4rpx; font-size: 22rpx;"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 22rpx;">{{cardInfo.cuisine}}</text>
+                </view>
+                <view class="info-divider" wx:if="{{cardInfo.cuisine}}" style="height: 20rpx; width: 1rpx; background-color: #eee;"></view>
+                <view class="info-item price" wx:if="{{cardInfo.price}}" style="flex: 0 0 auto; min-width: 30rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-rmb" style="margin-right: 4rpx; font-size: 22rpx;"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 22rpx;">{{cardInfo.price}}</text>
+                </view>
+                <view class="info-divider" wx:if="{{cardInfo.price}}" style="height: 20rpx; width: 1rpx; background-color: #eee;"></view>
+                <view class="info-item location" style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker" style="margin-right: 4rpx; font-size: 22rpx;"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 22rpx;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+            
+            <!-- 特色菜品 -->
+            <view class="restaurant-dishes-preview" wx:if="{{cardInfo.products && cardInfo.products.length > 0}}" catchtap="noop">
+              <view style="display: flex; align-items: flex-start; margin-bottom: 2rpx;">
+                <text class="dishes-icon fa fa-cutlery" style="margin-right: 6rpx; font-size: 22rpx; color: #fa8c16; margin-top: 1rpx; flex-shrink: 0;"></text>
+                <view style="flex: 1; line-height: 1.2;">
+                  <text class="dishes-preview-text" style="font-size: 22rpx; line-height: 1.2; color: #333; font-weight: 500;">特色菜品：</text>
+                  <text class="dishes-names" style="font-size: 22rpx; line-height: 1.2; color: #666;">
+                    <block wx:for="{{cardInfo.products}}" wx:key="title" wx:for-item="dish" wx:for-index="index">{{dish.title}}<text wx:if="{{index < cardInfo.products.length - 1}}">、</text></block>
+                  </text>
+                </view>
+              </view>
+              <text class="dishes-hint" style="font-size: 18rpx; line-height: 1.2; color: #999; margin-left: 28rpx; display: block;">菜品图片请点击下方"详情"按钮查看</text>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 商店模板 -->
+      <block wx:elif="{{cardInfo.template === 'shopTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 顶部状态标签区 -->
+            <view class="card-status" catchtap="noop">
+              <view class="status-tag flag-status-tag" 
+                    wx:for="{{cardInfo.flags}}" 
+                    wx:key="*this"
+                    catchtap="noop">
+                {{item}}
+              </view>
+            </view>
+            
+            <!-- 基本信息区域 -->
+            <view class="basic-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row" style="display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: space-between; width: 100%; min-height: 22rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" catchtap="noop">
+                <view class="info-item time-item" style="flex: 1 1 33%; max-width: 33%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-clock-o"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.openTime || '营业中'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item category" wx:if="{{cardInfo.category}}" style="flex: 1 1 25%; max-width: 25%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-tags"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.category}}</text>
+                </view>
+                <view class="info-divider" wx:if="{{cardInfo.category}}" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item location" style="flex: 1 1 42%; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 卫生间模板 -->
+      <block wx:elif="{{cardInfo.template === 'restroomTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 基本信息区域 - 卫生间特殊布局 -->
+            <view class="basic-info restroom-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row restroom-info-row" style="display: flex; flex-direction: column; width: 100%; gap: 16rpx;" catchtap="noop">
+                <!-- 位置信息 - 单独一行，字体更大 -->
+                <view class="info-item restroom-location" style="width: 100%; display: flex; align-items: center; justify-content: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker" style="font-size: 32rpx; color: #2196F3; margin-right: 12rpx;"></text>
+                  <text class="info-text restroom-location-text" style="font-size: 32rpx; font-weight: 500; color: #333; text-align: center;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+                
+                <!-- 设施类型信息 -->
+                <view class="info-item restroom-type" style="width: 100%; display: flex; align-items: center; justify-content: center;" catchtap="noop">
+                  <text class="info-icon fa fa-info-circle" style="font-size: 28rpx; color: #666; margin-right: 8rpx;"></text>
+                  <text class="info-text restroom-type-text" style="font-size: 28rpx; color: #666;">公共卫生间</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 充电宝模板 -->
+      <block wx:elif="{{cardInfo.template === 'chargerTemplate'}}">
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 基本信息区域 - 充电宝特殊布局 -->
+            <view class="basic-info restroom-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row restroom-info-row" style="display: flex; flex-direction: column; width: 100%; gap: 16rpx;" catchtap="noop">
+                <!-- 位置信息 - 单独一行，字体更大 -->
+                <view class="info-item restroom-location" style="width: 100%; display: flex; align-items: center; justify-content: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker" style="font-size: 32rpx; color: #2196F3; margin-right: 12rpx;"></text>
+                  <text class="info-text restroom-location-text" style="font-size: 32rpx; font-weight: 500; color: #333; text-align: center;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+                
+                <!-- 设施类型信息 -->
+                <view class="info-item restroom-type" style="width: 100%; display: flex; align-items: center; justify-content: center;" catchtap="noop">
+                  <text class="info-icon fa fa-battery-full" style="font-size: 28rpx; color: #666; margin-right: 8rpx;"></text>
+                  <text class="info-text restroom-type-text" style="font-size: 28rpx; color: #666;">充电宝租借</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+      
+      <!-- 默认模板 -->
+      <block wx:else>
+        <view class="card-content" catchtap="noop">
+          <view class="card-image-container" catchtap="noop">
+            <image class="card-image" src="{{cardInfo.image}}" mode="aspectFill"></image>
+          </view>
+          
+          <view class="card-info" catchtap="noop">
+            <!-- 顶部状态标签区 -->
+            <view class="card-status" catchtap="noop">
+              <view class="status-tag flag-status-tag" 
+                    wx:for="{{cardInfo.flags}}" 
+                    wx:key="*this"
+                    catchtap="noop">
+                {{item}}
+              </view>
+            </view>
+            
+            <!-- 基本信息区域 -->
+            <view class="basic-info" style="display: block; width: 100%;" catchtap="noop">
+              <view class="info-row" style="display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: space-between; width: 100%; min-height: 22rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" catchtap="noop">
+                <view class="info-item time-item" style="flex: 1 1 33%; max-width: 33%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-clock-o"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.openTime || '开放中'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item duration" style="flex: 1 1 25%; max-width: 25%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <icon type="waiting" size="12" class="duration-icon"></icon>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.duration || '未知'}}</text>
+                </view>
+                <view class="info-divider" style="height: 20rpx; width: 1rpx; background-color: #eee; margin: 0 2rpx;"></view>
+                <view class="info-item location" style="flex: 1 1 42%; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;" catchtap="noop">
+                  <text class="info-icon fa fa-map-marker"></text>
+                  <text class="info-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cardInfo.location || '未知位置'}}</text>
+                </view>
+              </view>
+            </view>
+            
+            <!-- 项目简介 -->
+            <view class="project-description" wx:if="{{cardInfo.summary}}" catchtap="noop">
+              <text class="description-icon fa fa-info-circle"></text>
+              <text class="description-text">{{cardInfo.summary}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+      
+      <view class="card-actions" catchtap="noop">
+        <view class="action-button nav-button" catchtap="handleNavigation">
+          <text class="button-icon fa fa-location-arrow"></text>
+          <text class="button-text">导航</text>
+        </view>
+        <view class="action-button favorite-button {{cardInfo.isFavorite ? 'favorited' : ''}}" catchtap="handleFavorite">
+          <text class="button-icon {{cardInfo.isFavorite ? 'fa fa-star' : 'fa fa-star-o'}}"></text>
+          <text class="button-text">{{cardInfo.isFavorite ? '已收藏' : '收藏'}}</text>
+        </view>
+        <view class="action-button details-button" catchtap="handleViewDetails">
+          <text class="button-icon fa fa-info-circle"></text>
+          <text class="button-text">详情</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view> 

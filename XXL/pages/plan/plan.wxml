@@ -1,0 +1,250 @@
+<view class="plan-container">
+  <!-- 游乐场选择器 - 与首页保持一致 -->
+  <view class="park-selector">
+    <picker bindchange="onParkChange" value="{{currentParkIndex}}" range="{{parks}}" range-key="name">
+      <view class="park-picker">
+        <text class="current-park">{{currentPark}}</text>
+        <text class="fa fa-chevron-down picker-arrow"></text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 收藏区域 -->
+  <view class="favorites-section">
+    <view class="section-title">我的收藏</view>
+    
+    <!-- 加载状态 -->
+    <view class="loading-favorites" wx:if="{{isLoadingFavorites}}">
+      <view class="loading-icon"></view>
+    </view>
+    
+    <!-- 收藏列表 -->
+    <view class="favorites-grid" wx:elif="{{favorites.length > 0}}">
+      <view class="favorite-item" wx:for="{{favorites}}" wx:key="id">
+        <view class="favorite-content" bindtap="onFavoriteItemTap" data-id="{{item.id}}">
+          <image class="favorite-image" src="{{item.image || '/images/placeholder.png'}}" mode="aspectFill" binderror="onImageError" data-index="{{index}}"></image>
+          <view class="favorite-name">{{item.name}}</view>
+        </view>
+        <view class="delete-btn" catchtap="onDeleteFavorite" data-id="{{item.id}}">
+          <text class="close-icon">×</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty-favorites" wx:else>
+      <view class="empty-text">暂无收藏项目</view>
+    </view>
+  </view>
+
+  <!-- 输入区域与推荐规划合并 -->
+  <view class="input-section">
+    <view class="input-container">
+      <input class="plan-input" placeholder="请输入规划内容" bindinput="onInputChange" value="{{inputValue}}"/>
+      <button class="plan-button" bindtap="onStartPlan">规划</button>
+    </view>
+    
+    <!-- 查询词列表 -->
+    <view class="query-section">
+      <view class="query-title">
+        <text class="query-title-text">推荐规划</text>
+        <text class="query-subtitle">点击快速开始</text>
+      </view>
+      <view class="query-list">
+        <view class="query-item" wx:for="{{queryList}}" wx:key="*this" bindtap="onQueryTap" data-query="{{item}}">
+          <text class="query-icon">🔍</text>
+          <text class="query-text">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 规划加载状态提示 -->
+  <view class="planning-loading-container" wx:if="{{isPlanningLoading}}">
+    <view class="planning-loading-box">
+      <view class="planning-loading-icon"></view>
+      <view class="planning-loading-text">
+        <text>正在计算规划行程</text>
+        <text class="loading-dots">{{planningLoadingDots}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 规划结果区域 -->
+  <view class="plan-results" wx:if="{{hasPlans}}">
+    <!-- 标签页 -->
+    <view class="tabs">
+      <view 
+        class="tab {{currentTabIndex === 0 ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-index="{{0}}"
+      >
+        综合推荐
+      </view>
+      <view 
+        class="tab {{currentTabIndex === 1 ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-index="{{1}}"
+      >
+        最短排队
+      </view>
+      <view 
+        class="tab {{currentTabIndex === 2 ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-index="{{2}}"
+      >
+        最早离园
+      </view>
+    </view>
+
+    <!-- 规划列表 -->
+    <view class="plan-list">
+      <!-- 综合推荐规划 -->
+      <block wx:if="{{currentTabIndex === 0}}">
+        <view class="plan-item" wx:for="{{plansData.comprehensive}}" wx:key="id">
+          <view class="plan-header">
+            <view class="plan-title-section">
+              <text class="plan-title">规划 {{index + 1}}</text>
+              <text class="queue-savings-tip" wx:if="{{item.queueTimeSavingsTip}}">{{item.queueTimeSavingsTip}}</text>
+            </view>
+            <view class="plan-actions">
+              <button class="favorite-btn {{item.isFavorited ? 'favorited' : ''}}" 
+                      bindtap="togglePlanFavorite" 
+                      data-plan-type="comprehensive" 
+                      data-index="{{index}}">
+                <text class="favorite-icon">{{item.isFavorited ? '★' : '☆'}}</text>
+                <text class="favorite-text">{{item.isFavorited ? '已收藏' : '收藏'}}</text>
+              </button>
+            </view>
+          </view>
+          
+          <view class="plan-summary">
+            <text class="summary-item">总排队时间: {{item.totalWaitTime}}分钟</text>
+            <text class="summary-item">离园时间: {{item.departureTime || '未知'}}</text>
+          </view>
+          
+          <view class="timeline">
+            <view class="timeline-item" wx:for="{{item.items}}" wx:key="id" wx:for-item="subItem" wx:for-index="itemIndex">
+              <view class="timeline-dot"></view>
+              <view class="timeline-line" wx:if="{{itemIndex !== item.items.length - 1}}"></view>
+              <view class="timeline-content">
+                <view class="time-slot">
+                  <text class="time">{{subItem.startTime}} - {{subItem.endTime}}</text>
+                  <text class="duration">({{subItem.queueTime}}分钟)</text>
+                </view>
+                <view class="project-card">
+                  <image class="project-image" src="{{subItem.imageUrl || '/images/placeholder.png'}}" mode="aspectFill" binderror="onProjectImageError" data-index="{{index}}" data-item-index="{{itemIndex}}"></image>
+                  <view class="project-info">
+                    <view class="project-name">{{subItem.name}}</view>
+                    <view class="project-detail">
+                      <text class="queue-time">排队: {{subItem.queueTime}}分钟</text>
+                      <text class="rest-time" wx:if="{{subItem.restTime}}">休息: {{subItem.restTime}}分钟</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 最短等待规划 -->
+      <block wx:elif="{{currentTabIndex === 1}}">
+        <view class="plan-item" wx:for="{{plansData.shortest_wait_time}}" wx:key="id">
+          <view class="plan-header">
+            <view class="plan-title-section">
+              <text class="plan-title">规划 {{index + 1}}</text>
+              <text class="queue-savings-tip" wx:if="{{item.queueTimeSavingsTip}}">{{item.queueTimeSavingsTip}}</text>
+            </view>
+            <view class="plan-actions">
+              <button class="favorite-btn {{item.isFavorited ? 'favorited' : ''}}" 
+                      bindtap="togglePlanFavorite" 
+                      data-plan-type="shortest_wait_time" 
+                      data-index="{{index}}">
+                <text class="favorite-icon">{{item.isFavorited ? '★' : '☆'}}</text>
+                <text class="favorite-text">{{item.isFavorited ? '已收藏' : '收藏'}}</text>
+              </button>
+            </view>
+          </view>
+          
+          <view class="plan-summary">
+            <text class="summary-item">总排队时间: {{item.totalWaitTime}}分钟</text>
+            <text class="summary-item">离园时间: {{item.departureTime || '未知'}}</text>
+          </view>
+          
+          <view class="timeline">
+            <view class="timeline-item" wx:for="{{item.items}}" wx:key="id" wx:for-item="subItem" wx:for-index="itemIndex">
+              <view class="timeline-dot"></view>
+              <view class="timeline-line" wx:if="{{itemIndex !== item.items.length - 1}}"></view>
+              <view class="timeline-content">
+                <view class="time-slot">
+                  <text class="time">{{subItem.startTime}} - {{subItem.endTime}}</text>
+                  <text class="duration">({{subItem.queueTime}}分钟)</text>
+                </view>
+                <view class="project-card">
+                  <image class="project-image" src="{{subItem.imageUrl || '/images/placeholder.png'}}" mode="aspectFill" binderror="onProjectImageError" data-index="{{index}}" data-item-index="{{itemIndex}}"></image>
+                  <view class="project-info">
+                    <view class="project-name">{{subItem.name}}</view>
+                    <view class="project-detail">
+                      <text class="queue-time">排队: {{subItem.queueTime}}分钟</text>
+                      <text class="rest-time" wx:if="{{subItem.restTime}}">休息: {{subItem.restTime}}分钟</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+
+      <!-- 最早结束规划 -->
+      <block wx:else>
+        <view class="plan-item" wx:for="{{plansData.earliest_departure}}" wx:key="id">
+          <view class="plan-header">
+            <view class="plan-title-section">
+              <text class="plan-title">规划 {{index + 1}}</text>
+              <text class="queue-savings-tip" wx:if="{{item.queueTimeSavingsTip}}">{{item.queueTimeSavingsTip}}</text>
+            </view>
+            <view class="plan-actions">
+              <button class="favorite-btn {{item.isFavorited ? 'favorited' : ''}}" 
+                      bindtap="togglePlanFavorite" 
+                      data-plan-type="earliest_departure" 
+                      data-index="{{index}}">
+                <text class="favorite-icon">{{item.isFavorited ? '★' : '☆'}}</text>
+                <text class="favorite-text">{{item.isFavorited ? '已收藏' : '收藏'}}</text>
+              </button>
+            </view>
+          </view>
+          
+          <view class="plan-summary">
+            <text class="summary-item">总排队时间: {{item.totalWaitTime}}分钟</text>
+            <text class="summary-item">离园时间: {{item.departureTime || '未知'}}</text>
+          </view>
+          
+          <view class="timeline">
+            <view class="timeline-item" wx:for="{{item.items}}" wx:key="id" wx:for-item="subItem" wx:for-index="itemIndex">
+              <view class="timeline-dot"></view>
+              <view class="timeline-line" wx:if="{{itemIndex !== item.items.length - 1}}"></view>
+              <view class="timeline-content">
+                <view class="time-slot">
+                  <text class="time">{{subItem.startTime}} - {{subItem.endTime}}</text>
+                  <text class="duration">({{subItem.queueTime}}分钟)</text>
+                </view>
+                <view class="project-card">
+                  <image class="project-image" src="{{subItem.imageUrl || '/images/placeholder.png'}}" mode="aspectFill" binderror="onProjectImageError" data-index="{{index}}" data-item-index="{{itemIndex}}"></image>
+                  <view class="project-info">
+                    <view class="project-name">{{subItem.name}}</view>
+                    <view class="project-detail">
+                      <text class="queue-time">排队: {{subItem.queueTime}}分钟</text>
+                      <text class="rest-time" wx:if="{{subItem.restTime}}">休息: {{subItem.restTime}}分钟</text>
+                    </view>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+</view> 

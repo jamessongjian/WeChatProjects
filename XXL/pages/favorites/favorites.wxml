@@ -1,0 +1,26 @@
+<view class="favorites-page">
+  <view class="favorites-container">
+    <view class="favorites-main">
+      <view class="favorites-title">我的收藏</view>
+      <scroll-view class="favorites-list" scroll-y>
+        <view class="favorite-item" wx:for="{{favorites}}" wx:key="id">
+          <view class="favorite-image">
+            <image src="{{item.image}}" mode="aspectFill"></image>
+            <view class="favorite-name">{{item.name}}</view>
+            <view class="favorite-star">
+              <text class="star-icon active">★</text>
+            </view>
+            <view class="queue-bubble {{item.queueLevel}}">{{item.queueTime}}</view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+    <view class="favorites-sidebar">
+      <view class="favorites-title">推荐查询</view>
+      <view class="recommend-queries">
+        <view class="recommend-title">热门搜索</view>
+        <view class="query-item" wx:for="{{recommendQueries}}" wx:key="*this">{{item}}</view>
+      </view>
+    </view>
+  </view>
+</view> 

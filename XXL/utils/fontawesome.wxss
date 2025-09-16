@@ -1,0 +1,90 @@
+@font-face {
+  font-family: 'FontAwesome';
+  src: url('https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/fonts/fontawesome-webfont.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.fa {
+  display: inline-block;
+  font-family: 'FontAwesome';
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 信息图标 - 使用文本摘要图标 */
+.fa-info-circle:before {
+  content: "\f0f6"; /* 使用文本摘要图标 */
+}
+
+/* 导航图标 */
+.fa-location-arrow:before {
+  content: "\f124";
+}
+
+/* 收藏图标 */
+.fa-star:before {
+  content: "\f005";
+}
+
+.fa-star-o:before {
+  content: "\f006";
+}
+
+/* 搜索图标 */
+.fa-search:before {
+  content: "\f002";
+}
+
+/* 常用导航相关图标，供参考选择 */
+.fa-map-marker:before {
+  content: "\f041";
+}
+
+.fa-map-marker-alt:before {
+  content: "\f3c5";
+}
+
+.fa-compass:before {
+  content: "\f14e";
+}
+
+.fa-directions:before {
+  content: "\f5eb";
+}
+
+.fa-route:before {
+  content: "\f4d7";
+}
+
+.fa-map:before {
+  content: "\f279";
+}
+
+.fa-map-signs:before {
+  content: "\f277";
+}
+
+/* 时钟图标 */
+.fa-clock-o:before {
+  content: "\f017";
+}
+
+/* 切换和下拉相关图标 */
+.fa-chevron-down:before {
+  content: "\f078";
+}
+
+.fa-exchange:before {
+  content: "\f0ec";
+}
+
+.fa-refresh:before {
+  content: "\f021";
+}
+
+.fa-random:before {
+  content: "\f074";
+} 

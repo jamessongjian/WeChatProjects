@@ -1,0 +1,403 @@
+<view class="profile-container">
+  
+  <!-- 页面标题栏 -->
+  <view class="page-header">
+    <text class="page-title">我的</text>
+  </view>
+
+  <!-- 用户登录/信息区域 - 置顶设计 -->
+  <view class="user-login-section">
+    <!-- 未登录状态 - 统一面板 -->
+    <view wx:if="{{!hasUserInfo}}" class="user-card guest-card">
+      <!-- 用户信息区域 -->
+      <view class="guest-info-section">
+        <view class="avatar-name-row">
+          <image 
+            class="guest-avatar" 
+            src="/images/xiaoxiaolu_default_touxiang.jpg"
+            mode="aspectFill"
+          ></image>
+          <view class="name-status">
+            <text class="guest-name">小小鹿momo</text>
+            <view class="guest-status-tag">
+              <text class="status-text">游客</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="welcome-message">
+          <text class="welcome-text">👋 欢迎来到小小鹿旅行助手</text>
+        </view>
+        
+        <!-- 登录按钮直接放在信息区域内 -->
+        <button class="wechat-login-btn" bindtap="quickLogin">
+          <text class="login-icon">💬</text>
+          <text class="login-text">微信一键登录</text>
+        </button>
+        
+        <text class="login-hint">登录后可查看等级等个人信息</text>
+      </view>
+    </view>
+    
+    <!-- 已登录状态 - 统一面板设计 -->
+    <view wx:else class="user-card logged-card">
+      <view class="logged-info-section">
+        <view class="avatar-name-row">
+          <button 
+            class="avatar-btn" 
+            open-type="chooseAvatar" 
+            bindchooseavatar="onChooseAvatar"
+          >
+            <image 
+              class="logged-avatar" 
+              src="{{userInfo.avatarUrl || '/images/xiaoxiaolu_default_touxiang.jpg'}}"
+              mode="aspectFill"
+            ></image>
+            <view class="avatar-edit-indicator">
+              <text class="edit-icon">✏️</text>
+            </view>
+          </button>
+          <view class="name-status">
+            <input 
+              type="nickname" 
+              class="logged-name-input" 
+              placeholder="设置昵称" 
+              bindinput="onNicknameReview" 
+              value="{{nickname || userInfo.nickName || '小小鹿用户'}}" 
+            />
+            <view class="logged-status-tag {{userType === 'vip' || userType === 'vip1' ? 'vip-tag' : 'normal-tag'}}">
+              <text class="status-text">{{userType === 'vip' || userType === 'vip1' ? 'VIP会员' : '普通用户'}}</text>
+            </view>
+          </view>
+          <button class="logout-action-btn" bindtap="logout">
+            <text class="logout-text">退出</text>
+          </button>
+        </view>
+        
+        <!-- 会员信息 -->
+        <view class="user-stats-row">
+          <view class="stat-item">
+            <text class="stat-label">ID</text>
+            <text class="stat-value">{{userIdDisplay}}</text>
+          </view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-divider"></view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-item">
+            <text class="stat-label">有效期</text>
+            <text class="stat-value">{{vipExpireDisplay}}</text>
+          </view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-divider"></view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-item">
+            <text class="stat-label">智能助手</text>
+            <text class="stat-value">{{assistantCount}}次</text>
+          </view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-divider"></view>
+          <view wx:if="{{aiAssistantEnabled}}" class="stat-item">
+            <text class="stat-label">旅行规划</text>
+            <text class="stat-value">{{planningCount}}次</text>
+          </view>
+        </view>
+        
+        <!-- 会员权益对比表格 -->
+        <view wx:if="{{aiAssistantEnabled}}" class="membership-comparison">
+          <view class="table-header">
+            <text class="table-title">会员权益对比</text>
+          </view>
+          <view class="comparison-table">
+            <!-- 表头 -->
+            <view class="table-row header-row">
+              <view class="table-cell header-cell type-cell">会员类型</view>
+              <view class="table-cell header-cell ads-cell">免广告</view>
+              <view class="table-cell header-cell reminder-cell">提醒功能</view>
+              <view class="table-cell header-cell assistant-cell">智能助手</view>
+              <view class="table-cell header-cell planning-cell">旅行规划</view>
+              <view class="table-cell header-cell price-cell">费用</view>
+            </view>
+            
+            <!-- 普通用户 -->
+            <view class="table-row data-row {{userType === 'normal' ? 'current-plan' : ''}}">
+              <view class="table-cell type-cell">
+                <text class="member-type">普通</text>
+                <text class="current-badge" wx:if="{{userType === 'normal'}}">当前</text>
+              </view>
+              <view class="table-cell ads-cell">无</view>
+              <view class="table-cell reminder-cell">无</view>
+              <view class="table-cell assistant-cell">0次</view>
+              <view class="table-cell planning-cell">0次</view>
+              <view class="table-cell price-cell">免费</view>
+            </view>
+            
+            <!-- VIP用户 -->
+            <view class="table-row data-row {{userType === 'vip' || userType === 'vip1' ? 'current-plan' : ''}}">
+              <view class="table-cell type-cell">
+                <text class="member-type">VIP</text>
+                <text class="current-badge" wx:if="{{userType === 'vip' || userType === 'vip1'}}">当前</text>
+              </view>
+              <view class="table-cell ads-cell">1个月</view>
+              <view class="table-cell reminder-cell">1个月</view>
+              <view class="table-cell assistant-cell">+5次</view>
+              <view class="table-cell planning-cell">+5次</view>
+              <view class="table-cell price-cell">
+                <button class="upgrade-btn vip-btn" bindtap="showPaymentModal" data-plan="vip">2元升级</button>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+
+  <!-- 我的提醒卡片 - 新增独立区域 -->
+  <view class="reminders-card">
+    <view class="reminders-card-header">
+      <view class="reminders-card-title">
+        <text class="reminders-icon">⏰</text>
+        <text class="reminders-title-text">我的提醒</text>
+      </view>
+      <view class="reminders-card-count" wx:if="{{reminders && reminders.length > 0}}">
+        <text class="count-badge">{{reminders.length}}</text>
+      </view>
+    </view>
+    
+    <view class="reminders-content" wx:if="{{reminders && reminders.length > 0}}">
+      <block wx:for="{{reminders}}" wx:key="id">
+        <view class="reminder-item" bindtap="viewReminderDetail" data-index="{{index}}">
+          <view class="reminder-info">
+            <view class="performance-name">{{item.performanceName}}</view>
+            <view class="performance-time">
+              <text class="time-label">演出场次：</text>
+              <text class="show-time">{{item.showTime}}</text>
+              <text class="duration-label">演出时长：</text>
+              <text class="duration">{{item.duration}}</text>
+            </view>
+            <view class="reminder-details">
+              <text class="park-name">{{item.parkName}}</text>
+              <text class="reminder-date">{{item.reminderDate}}</text>
+              <text class="advance-time">{{item.advanceText}}</text>
+            </view>
+          </view>
+          
+          <view class="reminder-actions" catchtap="preventBubble">
+            <button class="nav-btn" bindtap="navigateToPerformance" data-index="{{index}}">导航</button>
+            <button class="delete-btn" bindtap="deleteReminder" data-index="{{index}}">删除</button>
+          </view>
+        </view>
+      </block>
+    </view>
+    
+    <view class="no-reminders" wx:else>
+      <text class="no-reminders-icon">⏰</text>
+      <text class="no-reminders-text">暂无提醒</text>
+      <text class="no-reminders-desc">在演出详情页设置提醒后会显示在这里</text>
+
+    </view>
+  </view>
+
+  <!-- 我的收藏卡片 -->
+  <view class="favorite-plans-card">
+    <view class="favorite-plans-card-header">
+      <view class="favorite-plans-card-title">
+        <text class="favorite-plans-icon">⭐</text>
+        <text class="favorite-plans-title-text">我的行程收藏</text>
+      </view>
+      <view class="favorite-plans-card-count" wx:if="{{favoritePlans && favoritePlans.length > 0}}">
+        <text class="count-badge">{{favoritePlans.length}}</text>
+      </view>
+    </view>
+    
+    <view class="favorite-plans-content" wx:if="{{favoritePlans && favoritePlans.length > 0}}">
+      <block wx:for="{{favoritePlans}}" wx:key="id">
+        <view class="favorite-plan-item" bindtap="viewFavoritePlanDetail" data-index="{{index}}">
+          <view class="favorite-plan-info">
+            <view class="plan-type-name">{{item.planTypeName}} - 规划 {{item.originalIndex + 1}}</view>
+            <view class="plan-summary-info">
+              <text class="wait-time-label">总排队：</text>
+              <text class="wait-time">{{item.planData.totalWaitTime}}分钟</text>
+              <text class="departure-label">离园：</text>
+              <text class="departure-time">{{item.planData.departureTime || '未知'}}</text>
+            </view>
+            <view class="favorite-plan-details">
+              <text class="park-name">{{item.parkName}}</text>
+              <text class="created-date">收藏于 {{item.createdDate}}</text>
+              <text class="queue-savings" wx:if="{{item.planData.queueTimeSavingsTip}}">{{item.planData.queueTimeSavingsTip}}</text>
+            </view>
+          </view>
+          
+          <view class="favorite-plan-actions" catchtap="preventBubble">
+            <button class="view-btn" bindtap="viewFavoritePlan" data-index="{{index}}">查看</button>
+            <button class="delete-btn" bindtap="deleteFavoritePlan" data-index="{{index}}">删除</button>
+          </view>
+        </view>
+      </block>
+    </view>
+    
+    <view class="no-favorite-plans" wx:else>
+      <text class="no-favorite-plans-icon">⭐</text>
+      <text class="no-favorite-plans-text">暂无收藏</text>
+      <text class="no-favorite-plans-desc">在规划页面收藏心仪的行程后会显示在这里</text>
+    </view>
+  </view>
+
+  <!-- 我的地点收藏卡片 -->
+  <view class="project-favorites-card">
+    <view class="project-favorites-card-header">
+      <view class="project-favorites-card-title">
+        <text class="project-favorites-icon">🎭</text>
+        <text class="project-favorites-title-text">我的地点收藏</text>
+      </view>
+      <view class="project-favorites-card-count" wx:if="{{projectFavorites && projectFavorites.length > 0}}">
+        <text class="count-badge">{{projectFavorites.length}}</text>
+      </view>
+    </view>
+    
+    <view class="project-favorites-content" wx:if="{{projectFavorites && projectFavorites.length > 0}}">
+      <block wx:for="{{projectFavorites}}" wx:key="id">
+        <view class="project-favorite-item" bindtap="viewProjectFavoriteDetail" data-index="{{index}}">
+          <view class="project-favorite-info">
+            <view class="project-name">{{item.name}}</view>
+            <view class="project-type-info">
+              <text class="type-label">类型：</text>
+              <text class="project-type">{{item.typeName}}</text>
+              <text class="location-label">位置：</text>
+              <text class="project-location">{{item.location}}</text>
+            </view>
+            <view class="project-favorite-details">
+              <text class="park-name">{{item.parkName}}</text>
+              <text class="created-date">收藏于 {{item.createdDate}}</text>
+              <text class="project-status" wx:if="{{item.waitTime}}">{{item.waitTime}}</text>
+            </view>
+          </view>
+          
+          <view class="project-favorite-actions" catchtap="preventBubble">
+            <button class="view-btn" bindtap="viewProjectFavorite" data-index="{{index}}">查看</button>
+            <button class="delete-btn" bindtap="deleteProjectFavorite" data-index="{{index}}">删除</button>
+          </view>
+        </view>
+      </block>
+    </view>
+    
+    <view class="no-project-favorites" wx:else>
+      <text class="no-project-favorites-icon">🎭</text>
+      <text class="no-project-favorites-text">暂无地点收藏</text>
+      <text class="no-project-favorites-desc">在演出或游乐项目详情页收藏后会显示在这里</text>
+    </view>
+  </view>
+  
+  
+  <!-- VIP升级模态框 -->
+  <view class="vip-modal-overlay" wx:if="{{showVipModal}}" bindtap="hideVipUpgrade">
+    <view class="vip-modal" catchtap="noop">
+      <view class="vip-modal-header">
+        <text class="vip-modal-title">会员升级套餐</text>
+        <text class="vip-modal-close" bindtap="hideVipUpgrade">×</text>
+      </view>
+      
+      <view class="vip-plans-container">
+        <block wx:for="{{vipPlans}}" wx:key="id">
+          <view class="vip-plan-card {{item.isCurrentPlan ? 'current-plan' : ''}}" style="border-color: {{item.color}};">
+            <!-- 推荐标签 -->
+            <view class="recommend-badge" wx:if="{{item.isRecommended}}">推荐</view>
+            <!-- 当前方案标签 -->
+            <view class="current-badge" wx:if="{{item.isCurrentPlan}}">当前方案</view>
+            
+            <view class="plan-header" style="background-color: {{item.color}};">
+              <text class="plan-name">{{item.name}}</text>
+              <text class="plan-price">{{item.price}}</text>
+            </view>
+            
+            <view class="plan-features">
+              <view class="feature-summary">
+                <view class="feature-item">
+                  <text class="feature-label">免广告</text>
+                  <text class="feature-value {{item.adFree === 'x' ? 'feature-disabled' : 'feature-enabled'}}">{{item.adFree}}</text>
+                </view>
+                
+                <view class="feature-item">
+                  <text class="feature-label">游玩规划</text>
+                  <text class="feature-value {{item.planCount === '0次' ? 'feature-disabled' : 'feature-enabled'}}">{{item.planCount}}</text>
+                </view>
+                
+                <view class="feature-item">
+                  <text class="feature-label">智能助手</text>
+                  <text class="feature-value {{item.assistantCount === '0次' ? 'feature-disabled' : 'feature-enabled'}}">{{item.assistantCount}}</text>
+                </view>
+              </view>
+              
+              <view class="benefits-list">
+                <text class="benefits-title">专享权益</text>
+                <block wx:for="{{item.benefits}}" wx:key="*this" wx:for-item="benefit">
+                  <view class="benefit-item">
+                    <text class="benefit-icon">✓</text>
+                    <text class="benefit-text">{{benefit}}</text>
+                  </view>
+                </block>
+              </view>
+            </view>
+            
+            <view class="plan-action">
+              <button 
+                class="purchase-btn {{item.isCurrentPlan ? 'current-btn' : ''}}" 
+                style="background-color: {{item.isCurrentPlan ? '#cccccc' : item.color}};"
+                bindtap="purchaseVipPlan" 
+                data-plan-id="{{item.id}}"
+                disabled="{{item.isCurrentPlan}}"
+              >
+                {{item.isCurrentPlan ? '当前方案' : (item.id === 'normal' ? '免费使用' : '立即购买')}}
+              </button>
+            </view>
+          </view>
+        </block>
+      </view>
+      
+      <view class="vip-modal-footer">
+        <text class="vip-modal-note">* 购买后立即生效，支持微信支付</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支付弹窗 -->
+  <view class="payment-modal" wx:if="{{showPaymentModal}}">
+    <view class="payment-modal-mask" bindtap="hidePaymentModal"></view>
+    <view class="payment-modal-content">
+      <view class="payment-modal-header">
+        <text class="payment-modal-title">升级{{selectedPlan.name}}</text>
+        <view class="payment-modal-close" bindtap="hidePaymentModal">×</view>
+      </view>
+      
+      <view class="payment-modal-body">
+        <!-- 套餐信息 -->
+        <view class="payment-plan-info">
+          <view class="payment-plan-name">{{selectedPlan.name}}</view>
+          <view class="payment-plan-price">¥{{selectedPlan.price}}</view>
+        </view>
+        
+        <!-- 权益列表 -->
+        <view class="payment-benefits">
+          <text class="payment-benefits-title">升级后享有权益：</text>
+          <view class="payment-benefit-item" wx:for="{{selectedPlan.benefits}}" wx:key="index">
+            <text class="payment-benefit-icon">✓</text>
+            <text class="payment-benefit-text">{{item}}</text>
+          </view>
+        </view>
+        
+        <!-- 支付信息 -->
+        <view class="payment-info">
+          <view class="payment-info-row">
+            <text class="payment-info-label">套餐费用：</text>
+            <text class="payment-info-value">¥{{selectedPlan.price}}</text>
+          </view>
+          <view class="payment-info-row">
+            <text class="payment-info-label">支付方式：</text>
+            <text class="payment-info-value">微信支付</text>
+          </view>
+        </view>
+      </view>
+      
+      <view class="payment-modal-footer">
+        <button class="payment-cancel-btn" bindtap="hidePaymentModal">取消</button>
+        <button class="payment-confirm-btn" bindtap="processPayment">立即支付(测试)</button>
+      </view>
+    </view>
+  </view>
+
+</view> 

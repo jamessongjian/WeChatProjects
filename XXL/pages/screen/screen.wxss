@@ -1,0 +1,786 @@
+.screen-container {
+  padding: 0;
+  padding-bottom: 75px;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.screen-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  color: #333;
+}
+
+.screen-content {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20rpx;
+  min-height: 100vh;
+}
+
+.container {
+  padding: 6rpx;
+  box-sizing: border-box;
+  padding-top: 10rpx;
+  width: 100%;
+  margin: 0;
+  margin-top: calc(90rpx + env(safe-area-inset-top)); /* 适配游乐场选择器 */
+}
+
+/* 游乐场选择器样式 - 与首页保持一致 */
+.park-selector {
+  width: 100%;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 改为左对齐 */
+  background-color: #ffffff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding-top: env(safe-area-inset-top); /* 适配不同机型状态栏 */
+  padding-left: 20rpx; /* 添加左边距 */
+  z-index: 9999;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 为picker组件添加高z-index */
+.park-selector picker {
+  z-index: 9999 !important;
+}
+
+.park-picker {
+  display: flex;
+  align-items: center;
+  padding: 6rpx 20rpx;
+  border-radius: 24rpx;
+  background-color: #f8f8f8;
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s ease;
+  transform: translateY(-20rpx);
+}
+
+.park-picker:active {
+  background-color: #f0f0f0;
+}
+
+.current-park {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.current-park::after {
+  content: '🎡';
+  margin-left: 6rpx;
+  font-size: 24rpx;
+}
+
+.picker-arrow {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  color: #666666;
+}
+
+/* 游乐场综合信息大屏 */
+.park-dashboard {
+  /* 调整顶部边距以适应全屏模式 */
+  margin-top: calc(90rpx + env(safe-area-inset-top));
+  margin-left: 20rpx;
+  margin-right: 20rpx;
+  margin-bottom: 20rpx;
+  background: linear-gradient(135deg, #36D1DC, #5B86E5);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  box-shadow: 0 10rpx 40rpx rgba(91, 134, 229, 0.25);
+  position: relative;
+  overflow: hidden;
+  color: #333;
+  border: 1rpx solid #f0f0f0;
+  z-index: 10;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.park-name-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.park-name {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+}
+
+.park-name::after {
+  content: '🎢';
+  font-size: 28rpx;
+  margin-left: 8rpx;
+}
+
+.park-status {
+  padding: 4rpx 12rpx;
+  border-radius: 30rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border: 1rpx solid rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.1);
+}
+
+.park-time-weather {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx; /* 增加间距 */
+}
+
+.weather-info {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 24rpx;
+  color: #333;
+  order: 1; /* 天气在最上面 */
+}
+
+.weather-icon {
+  font-size: 24rpx;
+}
+
+.weather-temp {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.weather-desc {
+  font-size: 22rpx;
+  color: #666;
+  opacity: 0.8;
+}
+
+.time-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  order: 2; /* 时间在中间 */
+}
+
+.operating-hours {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #666;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 6rpx 10rpx;
+  border-radius: 16rpx;
+  backdrop-filter: blur(10rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  order: 3; /* 运营时间在最下面 */
+}
+
+.hours-icon {
+  margin-right: 4rpx;
+  font-size: 20rpx;
+}
+
+.hours-text {
+  font-size: 22rpx;
+  color: #333;
+  font-weight: 600;
+  text-shadow: 0 1rpx 2rpx rgba(255, 255, 255, 0.8);
+}
+
+/* 营运状态样式 */
+.operating-hours.open .hours-text {
+  color: #237804;
+  font-weight: 600;
+}
+
+.operating-hours.closed .hours-text {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.operating-hours.open {
+  border-color: rgba(35, 120, 4, 0.4);
+  background-color: rgba(35, 120, 4, 0.08);
+}
+
+.operating-hours.closed {
+  border-color: rgba(207, 19, 34, 0.4);
+  background-color: rgba(207, 19, 34, 0.08);
+}
+
+.current-time {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 4rpx;
+  color: #333;
+}
+
+.park-hours {
+  font-size: 22rpx;
+  color: #666;
+}
+
+.dashboard-metrics {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.metric-item {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+}
+
+.metric-label {
+  font-size: 22rpx;
+  color: #666;
+  margin-bottom: 4rpx;
+}
+
+.metric-value {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.dashboard-content-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10rpx !important;
+  width: 100%;
+  margin-top: 20rpx;
+}
+
+.dashboard-section {
+  flex: 1;
+  min-width: 30%;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+  margin-bottom: 12rpx;
+  width: 100% !important;
+  margin-bottom: 8rpx !important;
+}
+
+/* 我的收藏区域样式 */
+.dashboard-section:nth-child(1) {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1rpx solid rgba(54, 209, 220, 0.3);
+  box-shadow: 0 2rpx 10rpx rgba(54, 209, 220, 0.1);
+}
+
+/* 热门项目区域样式 */
+.dashboard-section:nth-child(2) {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1rpx solid rgba(91, 134, 229, 0.3);
+  box-shadow: 0 2rpx 10rpx rgba(91, 134, 229, 0.1);
+}
+
+/* 下一场演出区域样式 */
+.dashboard-section:nth-child(3) {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1rpx solid rgba(120, 170, 230, 0.3);
+  box-shadow: 0 2rpx 10rpx rgba(120, 170, 230, 0.1);
+}
+
+.column-title {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 10rpx;
+  display: flex;
+  align-items: center;
+}
+
+/* 为标题图标添加差异化颜色 */
+.dashboard-section:nth-child(1) .title-icon {
+  color: #36D1DC;
+}
+
+.dashboard-section:nth-child(2) .title-icon {
+  color: #5B86E5;
+}
+
+.dashboard-section:nth-child(3) .title-icon {
+  color: #78AAE6;
+}
+
+.title-icon {
+  margin-right: 6rpx;
+}
+
+.attractions-content, .shows-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.hot-attraction, .upcoming-show {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 10rpx;
+  margin-bottom: 6rpx;
+  border-radius: 6rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1rpx solid rgba(54, 209, 220, 0.2);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 我的收藏项目卡片样式 */
+.dashboard-section:nth-child(1) .hot-attraction {
+  background: rgba(54, 209, 220, 0.08);
+  border: 1rpx solid rgba(54, 209, 220, 0.2);
+}
+
+/* 热门项目卡片样式 */
+.dashboard-section:nth-child(2) .hot-attraction {
+  background: rgba(91, 134, 229, 0.08);
+  border: 1rpx solid rgba(91, 134, 229, 0.2);
+}
+
+/* 下一场演出卡片样式 */
+.dashboard-section:nth-child(3) .upcoming-show {
+  background: rgba(120, 170, 230, 0.08);
+  border: 1rpx solid rgba(120, 170, 230, 0.2);
+}
+
+.hot-attraction:active, .upcoming-show:active {
+  transform: scale(0.98);
+  background-color: #f9f9f9;
+}
+
+.attraction-name, .show-name {
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 70%;
+  font-size: 22rpx;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8rpx;
+}
+
+/* 右侧信息容器 */
+.attraction-info-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+/* 距离显示 */
+.attraction-distance {
+  font-size: 18rpx;
+  color: #999;
+  font-weight: 400;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.attraction-wait {
+  flex-shrink: 0;
+  max-width: 28vw;
+  min-width: 60rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  font-size: 20rpx;
+  font-weight: 500;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.show-time-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.show-time {
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  color: #fff;
+  text-align: center;
+}
+
+.wait-time {
+  font-size: 20rpx;
+  color: #666;
+  margin-top: 4rpx;
+}
+
+.dashboard-notice {
+  background-color: #fff7e6;
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  display: flex;
+  align-items: center;
+  border: 1rpx solid #ffe58f;
+  margin-top: 16rpx;
+}
+
+.notice-icon {
+  font-size: 28rpx;
+  margin-right: 8rpx;
+  color: #faad14;
+}
+
+.notice-text {
+  font-size: 22rpx;
+  color: #666;
+  line-height: 1.4;
+  flex: 1;
+}
+
+
+.dashboard-detail-button {
+  margin-left: 10rpx;
+  width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 5;
+}
+
+/* Add the CSS for the no-favorites case */
+.no-favorites {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80rpx;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 防止卡片内容超出屏幕，强制宽度限制 */
+.dashboard-section,
+.attractions-content,
+.shows-content {
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+}
+
+.hot-attraction,
+.upcoming-show {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
+}
+
+/* 展开/收起按钮样式 */
+.expand-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(91, 134, 229, 0.08);
+  border: 1rpx solid rgba(91, 134, 229, 0.3);
+  border-radius: 20rpx;
+  transition: all 0.2s ease;
+  font-size: 20rpx;
+  color: #5B86E5;
+  cursor: pointer;
+}
+
+.expand-button:active {
+  transform: scale(0.98);
+  background: rgba(91, 134, 229, 0.15);
+}
+
+.expand-text {
+  font-weight: 500;
+  margin-right: 8rpx;
+}
+
+.expand-icon {
+  font-size: 18rpx;
+  transition: transform 0.2s ease;
+  font-weight: bold;
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* 为不同区域的展开按钮添加不同颜色 */
+/* 我的收藏区域的展开按钮 */
+.dashboard-section:nth-child(1) .expand-button {
+  background: rgba(54, 209, 220, 0.08);
+  border: 1rpx solid rgba(54, 209, 220, 0.3);
+  color: #36D1DC;
+}
+
+.dashboard-section:nth-child(1) .expand-button:active {
+  background: rgba(54, 209, 220, 0.15);
+}
+
+/* 热门项目区域的展开按钮 */
+.dashboard-section:nth-child(2) .expand-button {
+  background: rgba(91, 134, 229, 0.08);
+  border: 1rpx solid rgba(91, 134, 229, 0.3);
+  color: #5B86E5;
+}
+
+.dashboard-section:nth-child(2) .expand-button:active {
+  background: rgba(91, 134, 229, 0.15);
+}
+
+/* 下一场演出区域的展开按钮 */
+.dashboard-section:nth-child(3) .expand-button {
+  background: rgba(120, 170, 230, 0.08);
+  border: 1rpx solid rgba(120, 170, 230, 0.3);
+  color: #78AAE6;
+}
+
+.dashboard-section:nth-child(3) .expand-button:active {
+  background: rgba(120, 170, 230, 0.15);
+}
+
+/* 页面遮罩层 */
+.page-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* 收藏浮层遮罩 */
+.favorites-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 收藏弹窗 */
+.favorites-popup {
+  width: 90%;
+  max-width: 800rpx;
+  max-height: 80vh;
+  background-color: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.3);
+}
+
+/* 收藏容器 */
+.favorites-container {
+  display: flex;
+  height: 100%;
+}
+
+/* 收藏主区域 */
+.favorites-main {
+  flex: 2;
+  padding: 24rpx;
+  border-right: 1rpx solid #f0f0f0;
+}
+
+/* 收藏标题 */
+.favorites-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20rpx;
+  text-align: center;
+}
+
+/* 收藏列表 */
+.favorites-list {
+  max-height: 60vh;
+}
+
+/* 收藏项目 */
+.favorite-item {
+  margin-bottom: 16rpx;
+  position: relative;
+}
+
+/* 收藏图片容器 */
+.favorite-image {
+  position: relative;
+  width: 100%;
+  height: 200rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background-color: #f5f5f5;
+}
+
+.favorite-image image {
+  width: 100%;
+  height: 100%;
+}
+
+/* 收藏名称 */
+.favorite-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  color: #fff;
+  padding: 20rpx 16rpx 16rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+/* 收藏星标 */
+.favorite-star {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  width: 48rpx;
+  height: 48rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star-icon {
+  font-size: 24rpx;
+  color: #ffd700;
+}
+
+/* 详情按钮 */
+.detail-button {
+  position: absolute;
+  top: 12rpx;
+  left: 12rpx;
+  width: 48rpx;
+  height: 48rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-icon {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* 排队气泡 */
+.queue-bubble {
+  position: absolute;
+  bottom: 16rpx;
+  right: 16rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 20rpx;
+  font-size: 20rpx;
+  font-weight: 500;
+  color: #fff;
+}
+
+.queue-bubble.low {
+  background-color: #52c41a;
+}
+
+.queue-bubble.medium {
+  background-color: #faad14;
+}
+
+.queue-bubble.high {
+  background-color: #f5222d;
+}
+
+/* 收藏侧边栏 */
+.favorites-sidebar {
+  flex: 1;
+  padding: 24rpx;
+  background-color: #f8f9fa;
+}
+
+/* 推荐查询 */
+.recommend-queries {
+  margin-top: 16rpx;
+}
+
+.recommend-title {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+
+.query-item {
+  padding: 12rpx 16rpx;
+  margin-bottom: 8rpx;
+  background-color: #fff;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  color: #333;
+  border: 1rpx solid #e8e8e8;
+  transition: all 0.2s ease;
+}
+
+.query-item:active {
+  background-color: #f0f0f0;
+  transform: scale(0.98);
+}
+
+/* 底部安全区域适配已在上面的.screen-container中处理 */
+
+/* 修复park-dashboard的底部间距，避免被底部tabBar遮挡 */
+.park-dashboard {
+  margin-bottom: 40rpx;
+} 

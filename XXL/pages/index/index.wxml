@@ -1,0 +1,120 @@
+<!--index.wxml-->
+<view class="container" style="width: 100%; display: flex; box-sizing: border-box; position: relative; left: 0rpx; top: 0rpx; height: 100vh">
+  <!-- 游乐场选择器 - 添加在顶部并适配全屏 -->
+  <view class="park-selector">
+    <picker bindchange="changePark" value="{{currentParkIndex}}" range="{{parks}}" range-key="name">
+      <view class="park-picker">
+        <text class="current-park">{{currentPark}}</text>
+        <text class="fa fa-chevron-down picker-arrow"></text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 地图组件已移除 -->
+
+  <!-- 对话记录展示框 -->
+  <scroll-view class="chat-box" scroll-y scroll-into-view="{{'msg-' + (messages.length - 1)}}" style="width: 100%; display: block; box-sizing: border-box; height: calc(100vh - 120rpx - env(safe-area-inset-bottom) - 80rpx - env(safe-area-inset-top)); padding: 0; margin: 0; left: 0; right: 0; margin-top: calc(80rpx + env(safe-area-inset-top)); padding-bottom: 110rpx;">
+    <block wx:for="{{messages}}" wx:key="id">
+      <view class="message {{item.role}}" id="msg-{{index}}" style="width: 100%; display: flex; box-sizing: border-box; position: relative; left: 0rpx; top: 0rpx">
+        <block wx:if="{{item.role === 'user'}}">
+          <image class="user-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view class="message-content-wrapper">
+            <text class="user-nickname">{{item.nickName}}</text>
+            <view class="message-content">
+              <text>{{item.content}}</text>
+            </view>
+          </view>
+        </block>
+        <block wx:else>
+          <view class="message-content-wrapper" style="width: 85%; display: flex; box-sizing: content-box; position: relative; left: -20rpx; top:0rpx">
+            <text class="assistant-nickname">助手</text>
+            <view class="message-content" style="display: block; box-sizing: border-box; width: 100%; position: relative; left: 0rpx; top: -4rpx">
+              <block wx:if="{{item.type === 'image'}}">
+                <image src="{{item.content}}" mode="widthFix" class="message-image" bindtap="previewImage" data-url="{{item.content}}"></image>
+              </block>
+              <block wx:elif="{{item.type === 'welcome'}}">
+                <view class="welcome-container">
+                  <view class="welcome-title">{{item.content}}</view>
+                  <!-- 推荐查询使用新的卡片式布局，行间距优化 -->
+                  <view class="welcome-queries" style="gap: 4rpx; padding-bottom: 4rpx;">
+                    <view 
+                      wx:for="{{item.suggestedQueries}}" 
+                      wx:for-item="query" 
+                      wx:key="*this" 
+                      class="welcome-query-item"
+                      catchtap="handleSuggestedQueryTap"
+                      hover-class="welcome-query-active"
+                      hover-stay-time="100"
+                      data-query="{{query}}"
+                      style="margin-bottom: 2rpx; line-height: 1.1; position: relative;">
+                      {{query}}
+                    </view>
+                  </view>
+                </view>
+              </block>
+              <block wx:elif="{{item.type === 'html'}}">
+                <mp-html id="mp-html-{{index}}"
+                         content="{{item.content}}" 
+                         markdown="{{false}}"
+                         tag-style="{{tagStyle}}"
+                         bindtap="handleHtmlTap"
+                         bindnodeclick="handleHtmlNodeClick"
+                         binderror="handleHtmlError"
+                         bindasap="handleHtmlReady"
+                         bindimgtap="handleImgTap"
+                         bindlinktap="handleLinkTap"
+                         data-message-index="{{index}}"
+                         use-anchor="{{true}}"
+                         lazy-load="{{true}}"
+                         show-img-menu="{{true}}"
+                         selectable="{{true}}"/>
+              </block>
+              <block wx:elif="{{item.type === 'loading'}}">
+                <view class="loading-message">
+                  <view class="loading-dots">
+                    <view class="dot"></view>
+                    <view class="dot"></view>
+                    <view class="dot"></view>
+                  </view>
+                  <text>{{item.content}}</text>
+                </view>
+              </block>
+              <block wx:else>
+                <text>{{item.content}}</text>
+              </block>
+              <!-- 将消息时间放回message-content内部右下角 -->
+              <view class="message-time" wx:if="{{item.role === 'assistant'}}">{{item.
+timestamp}}</view>
+            </view>
+            <!-- 推荐查询按钮改为卡片式布局 -->
+            <view class="suggested-queries" wx:if="{{item.suggestedQueries && item.suggestedQueries.length > 0 && item.type !== 'welcome'}}" style="gap: 4rpx; margin-top: 6rpx; margin-bottom: 6rpx;">
+              <view 
+                wx:for="{{item.suggestedQueries}}" 
+                wx:for-item="query" 
+                wx:key="*this" 
+                class="query-item"
+                catchtap="handleSuggestedQueryTap"
+                hover-class="query-item-active"
+                hover-stay-time="100"
+                data-query="{{query}}"
+                style="margin-bottom: 2rpx; line-height: 1.1; position: relative;">
+                {{query}}
+              </view>
+            </view>
+          </view>
+          <image class="assistant-avatar" src="/images/assistant_avatar.png" mode="aspectFill" style="width: 80rpx; height: 80rpx; display: block; box-sizing: border-box"></image>
+        </block>
+      </view>
+    </block>
+    
+    <!-- 底部空白区域，防止最后一条消息被输入框遮挡 -->
+    <view style="width: 100%; height: 100rpx;"></view>
+  </scroll-view>
+
+
+  <!-- 用户输入框 - 调整为底部固定 -->
+  <view class="input-container">
+    <input class="input-field" bindinput="onInput" value="{{inputValue}}" placeholder="请输入消息..." confirm-type="send" bindconfirm="sendMessage" />
+    <button class="send-button" bindtap="sendMessage" style="width: 90rpx !important; min-width: 90rpx !important; max-width: 90rpx !important;">发送</button>
+  </view>
+</view>

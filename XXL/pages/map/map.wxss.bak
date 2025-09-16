@@ -1,0 +1,1290 @@
+.map-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+  margin-top: 0; /* 移除顶部空间 */
+}
+
+.filter-container {
+  position: absolute;
+  top: 10rpx;
+  left: 10rpx;
+  right: 10rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 8rpx;
+  border-radius: 12rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.filter-button {
+  padding: 6rpx 16rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  color: #333;
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.filter-button.active {
+  background: #07c160;
+  color: #fff;
+}
+
+.filter-button.refresh-button {
+  background: rgba(7, 193, 96, 0.1);
+  color: #07c160;
+  border: 1rpx solid #07c160;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.filter-button.refresh-button:active {
+  background: rgba(7, 193, 96, 0.2);
+}
+
+.filter-button.refresh-button .iconfont {
+  font-size: 20rpx;
+}
+
+.filter-item,
+.filter-item[data-type="all"],
+.filter-item[data-type="attraction"],
+.filter-item[data-type="performance"],
+.filter-item[data-type="favorite"],
+.filter-item[data-type="closed"],
+.filter-item.refresh-button {
+  position: static;
+  top: auto;
+  left: auto;
+}
+
+/* 添加遮罩层样式 */
+.card-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* 改为底部对齐，确保卡片显示在底部 */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  touch-action: none; /* 阻止系统默认的触摸操作 */
+}
+
+.card-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 调整信息卡片样式，使其适应新的遮罩层布局 */
+.info-card {
+  position: relative;
+  width: 95vw;         /* 使用视口宽度，适配不同屏幕 */
+  max-width: 800rpx;   /* 最大宽度，防止过宽 */
+  max-height: 80%;
+  margin: 0 auto;
+  margin-bottom: 20rpx; /* 从底部留出一定空间 */
+  z-index: 1000;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  transform: translateY(100%); /* 初始状态在屏幕底部以外 */
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  touch-action: auto;
+  isolation: isolate;
+}
+
+/* 添加反向动画效果 */
+.card-overlay.show .info-card {
+  transform: translateY(0); /* 显示时移动到可见区域 */
+}
+
+/* 为卡片内所有元素添加点击事件捕获 */
+.info-card .card-header,
+.info-card .card-content,
+.info-card .card-actions,
+.info-card .card-title,
+.info-card .close-button,
+.info-card .card-image-container,
+.info-card .card-info,
+.info-card .card-status,
+.info-card .basic-info,
+.info-card .project-description,
+.info-card .show-times-container,
+.info-card .query-suggestions {
+  pointer-events: auto;
+}
+
+/* 为卡片添加动画效果 */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx 8rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.close-button {
+  font-size: 36rpx;
+  color: #999;
+  padding: 0 10rpx;
+}
+
+.card-content {
+  display: flex;
+  padding: 12rpx 20rpx;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.card-image-container {
+  position: relative;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  width: 160rpx;
+  height: 200rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+  object-fit: cover;
+}
+
+/* 书签样式排队时间标签 */
+.queue-bookmark {
+  position: absolute;
+  bottom: 10rpx;
+  left: 0;
+  background: linear-gradient(to right, rgba(83, 193, 120, 1) 0%, rgba(83, 193, 120, 0.85) 100%);
+  color: white;
+  padding: 4rpx 14rpx 4rpx 10rpx;
+  font-size: 20rpx;
+  height: 30rpx;
+  line-height: 30rpx;
+  border-radius: 0 8rpx 8rpx 0;
+  box-shadow: 2rpx 2rpx 8rpx rgba(0, 0, 0, 0.25), inset 0 -2rpx 0 rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(0);
+  transition: all 0.2s ease;
+  border-left: 3rpx solid rgba(83, 193, 120, 1.0);
+}
+
+.queue-bookmark:after {
+  content: '';
+  position: absolute;
+  top: -6rpx;
+  left: 0;
+  width: 6rpx;
+  height: 6rpx;
+  background-color: rgba(60, 140, 90, 0.9);
+  border-radius: 0 0 3rpx 0;
+}
+
+.queue-bookmark:hover {
+  transform: translateY(-2rpx);
+  box-shadow: 2rpx 4rpx 10rpx rgba(0, 0, 0, 0.3), inset 0 -2rpx 0 rgba(0, 0, 0, 0.1);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="good"] {
+  background: linear-gradient(to right, rgba(83, 193, 120, 1) 0%, rgba(83, 193, 120, 0.85) 100%);
+  border-left: 3rpx solid rgba(83, 193, 120, 1.0);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="good"]:after {
+  background-color: rgba(60, 140, 90, 0.9);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="medium"] {
+  background: linear-gradient(to right, rgba(245, 166, 35, 1) 0%, rgba(245, 166, 35, 0.85) 100%);
+  border-left: 3rpx solid rgba(245, 166, 35, 1.0);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="medium"]:after {
+  background-color: rgba(190, 130, 30, 0.9);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="busy"] {
+  background: linear-gradient(to right, rgba(230, 67, 64, 1) 0%, rgba(230, 67, 64, 0.85) 100%);
+  border-left: 3rpx solid rgba(230, 67, 64, 1.0);
+}
+
+.info-card .card-image-container .queue-bookmark[data-wait-time="busy"]:after {
+  background-color: rgba(180, 60, 50, 0.9);
+}
+
+/* 关闭状态 - 同时支持类和数据属性 */
+.info-card .card-image-container .queue-bookmark.closed,
+.info-card .card-image-container .queue-bookmark[data-wait-time="closed"] {
+  background: linear-gradient(to right, rgba(136, 136, 136, 1) 0%, rgba(136, 136, 136, 0.85) 100%);
+  border-left: 3rpx solid rgba(136, 136, 136, 1.0);
+}
+
+.info-card .card-image-container .queue-bookmark.closed:after,
+.info-card .card-image-container .queue-bookmark[data-wait-time="closed"]:after {
+  background-color: rgba(100, 100, 100, 0.9);
+}
+
+.bookmark-time {
+  font-weight: bold;
+  font-size: 20rpx;
+  line-height: 1;
+  margin-right: 2rpx;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+}
+
+.bookmark-unit {
+  font-size: 18rpx;
+  line-height: 1;
+  opacity: 0.9;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 卡片信息区域基础样式 */
+.card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  height: 200rpx; /* 设置与图片相同的高度 */
+}
+
+/* ===================== */
+/* 景点卡片(Attraction)专属样式 */
+/* ===================== */
+.info-card[data-template="attractionTemplate"] .card-info {
+  gap: 4rpx !important; /* 各部分间距 */
+  justify-content: space-between !important; /* 内容均匀分布 */
+}
+
+.info-card[data-template="attractionTemplate"] .card-status {
+  margin-bottom: 12rpx !important; /* 底部边距 */
+  gap: 12rpx !important; /* 间距 */
+}
+
+.info-card[data-template="attractionTemplate"] .basic-info {
+  margin-bottom: 4rpx !important; /* 底部边距 */
+  line-height: 1.3 !important; /* 行高 */
+}
+
+.info-card[data-template="attractionTemplate"] .info-row {
+  margin-bottom: 4rpx !important;
+  min-height: 28rpx !important;
+  line-height: 1.3 !important;
+}
+
+.info-card[data-template="attractionTemplate"] .info-item {
+  font-size: 20rpx !important;
+  line-height: 1.3 !important;
+}
+
+.info-card[data-template="attractionTemplate"] .info-icon {
+  font-size: 22rpx !important;
+}
+
+.info-card[data-template="attractionTemplate"] .project-description {
+  margin: 4rpx 0 !important; /* 边距 */
+  line-height: 1.4 !important; /* 行高 */
+}
+
+.info-card[data-template="attractionTemplate"] .description-text {
+  line-height: 1.4 !important;
+  font-size: 22rpx !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.info-card[data-template="attractionTemplate"] .query-suggestions {
+  margin-top: auto !important; /* 推到底部 */
+}
+
+.info-card[data-template="attractionTemplate"] .query-tag {
+  font-size: 20rpx !important;
+  padding: 4rpx 12rpx !important;
+  line-height: 1.3 !important;
+}
+
+/* ===================== */
+/* 表演卡片(Performance)专属样式 */
+/* ===================== */
+.info-card[data-template="performanceTemplate"] .card-info {
+  gap: 3rpx !important; /* 减少行间距，原值为5rpx */
+  justify-content: flex-start !important; /* 从上到下排列 */
+}
+
+.info-card[data-template="performanceTemplate"] .card-status {
+  margin-bottom: 6rpx !important; /* 增加边距 */
+  gap: 6rpx !important; /* 增加标签间距 */
+}
+
+.info-card[data-template="performanceTemplate"] .status-tag {
+  font-size: 20rpx !important; /* 增加字体大小 */
+  padding: 2rpx 10rpx !important; /* 增加内边距 */
+  border-radius: 4rpx !important; /* 确保圆角一致 */
+}
+
+.info-card[data-template="performanceTemplate"] .basic-info {
+  margin-bottom: 6rpx !important; /* 增加底部外边距 */
+  line-height: 1.3 !important; /* 增加行高 */
+  width: 100% !important; /* 确保占满整个宽度 */
+  display: block !important; /* 块级显示 */
+}
+
+.info-card[data-template="performanceTemplate"] .info-row {
+  display: flex !important; /* 改为flex布局 */
+  justify-content: space-between !important; /* 元素之间平均分布 */
+  flex-wrap: nowrap !important; /* 不换行 */
+  align-items: center !important; /* 垂直居中 */
+  min-height: 26rpx !important; /* 设置最小高度 */
+  margin-bottom: 4rpx !important; /* 底部边距 */
+}
+
+/* 重要：为了确保性能卡片中的时间、时长和位置在一行显示，强制设置其样式 */
+.info-card[data-template="performanceTemplate"] .info-item.time-item {
+  max-width: 33% !important; /* 控制宽度比例 */
+  flex: 1 1 33% !important; /* 可以放大，可以收缩，基础宽度33% */
+}
+
+.info-card[data-template="performanceTemplate"] .info-item.duration {
+  max-width: 25% !important; /* 控制宽度比例 */
+  flex: 1 1 25% !important; /* 可以放大，可以收缩，基础宽度25% */
+}
+
+.info-card[data-template="performanceTemplate"] .info-item.location {
+  max-width: 42% !important; /* 控制宽度比例 */
+  flex: 1 1 42% !important; /* 可以放大，可以收缩，基础宽度42% */
+}
+
+/* 确保divider正确显示 */
+.info-card[data-template="performanceTemplate"] .info-divider {
+  height: 22rpx !important; /* 增加高度 */
+  margin: 0 2rpx !important; /* 减小左右外边距以更加紧凑 */
+  width: 1rpx !important; /* 固定宽度 */
+  background-color: #eee !important; /* 设置背景色 */
+  flex: 0 0 1rpx !important; /* 不放大，不收缩，固定宽度 */
+}
+
+.info-card[data-template="performanceTemplate"] .info-item {
+  font-size: 20rpx !important; /* 增加字体大小 */
+  line-height: 1.3 !important; /* 增加行高 */
+  white-space: nowrap !important; /* 防止文本换行 */
+  overflow: hidden !important; /* 溢出隐藏 */
+  text-overflow: ellipsis !important; /* 显示省略号 */
+  flex: 0 1 auto !important; /* 不放大，可缩小，基于内容宽度 */
+  display: flex !important; /* 使用flex布局 */
+  align-items: center !important; /* 垂直居中 */
+}
+
+.info-card[data-template="performanceTemplate"] .info-text {
+  overflow: hidden !important; /* 溢出隐藏 */
+  text-overflow: ellipsis !important; /* 显示省略号 */
+  white-space: nowrap !important; /* 防止文本换行 */
+}
+
+.info-card[data-template="performanceTemplate"] .info-icon {
+  font-size: 22rpx !important; /* 增加图标大小 */
+  margin-right: 4rpx !important; /* 减小右边距 */
+  flex-shrink: 0 !important; /* 防止图标收缩 */
+}
+
+.info-card[data-template="performanceTemplate"] .project-description {
+  margin: 3rpx 0 !important; /* 减少外边距，原值为6rpx 0 */
+  line-height: 1.3 !important; /* 增加行高 */
+  max-height: 52rpx !important; /* 增加最大高度 */
+}
+
+.info-card[data-template="performanceTemplate"] .description-icon {
+  font-size: 22rpx !important; /* 增加图标大小 */
+  margin-top: 2rpx !important; /* 添加顶部外边距 */
+  margin-right: 4rpx !important; /* 增加右边距 */
+}
+
+.info-card[data-template="performanceTemplate"] .description-text {
+  line-height: 1.3 !important; /* 增加行高 */
+  -webkit-line-clamp: 2 !important;
+  font-size: 20rpx !important; /* 增加字体大小 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-times-container {
+  margin: 6rpx 0 !important; /* 增加外边距 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-times {
+  min-height: 26rpx !important; /* 增加高度 */
+  margin-bottom: 4rpx !important; /* 增加底部外边距 */
+  gap: 6rpx !important; /* 增加内部间距 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-times-icon {
+  font-size: 22rpx !important; /* 增加图标大小 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-times-label {
+  font-size: 20rpx !important; /* 增加字体大小 */
+  line-height: 1.3 !important; /* 增加行高 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-time-tags {
+  gap: 6rpx !important; /* 增加标签间距 */
+  height: 26rpx !important; /* 增加高度 */
+}
+
+.info-card[data-template="performanceTemplate"] .show-time-tag {
+  font-size: 20rpx !important; /* 增加字体大小 */
+  height: 26rpx !important; /* 增加高度 */
+  line-height: 26rpx !important; /* 调整行高 */
+  padding: 0 6rpx !important; /* 增加内部间距 */
+}
+
+.info-card[data-template="performanceTemplate"] .query-suggestions {
+  margin-top: 6rpx !important; /* 增加顶部外边距 */
+}
+
+.info-card[data-template="performanceTemplate"] .query-icon {
+  font-size: 22rpx !important; /* 增加图标大小 */
+  width: 22rpx !important; /* 增加宽度 */
+  height: 22rpx !important; /* 增加高度 */
+}
+
+.info-card[data-template="performanceTemplate"] .query-tag {
+  font-size: 20rpx !important; /* 增加字体大小 */
+  padding: 2rpx 8rpx !important; /* 增加内部间距 */
+  line-height: 1.3 !important; /* 增加行高 */
+  border-radius: 8rpx !important;
+}
+
+/* 状态标签区基础样式 - 保留，两种卡片共用 */
+.card-status {
+  margin-bottom: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.status-tag {
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  background-color: #1aad19;
+  color: white;
+  display: inline-block;
+}
+
+/* 删除差异化颜色样式，恢复统一样式 */
+.status-tag.flag-status-tag {
+  background-color: #1aad19;
+  color: white;
+}
+
+.status-closed {
+  background-color: #8e8e93;
+}
+
+.status-upcoming {
+  background-color: #007aff;
+}
+
+.status-over {
+  background-color: #8e8e93;
+}
+
+/* 快速通道标签 */
+.express-tag {
+  background-color: rgba(25, 118, 210, 0.08);
+  color: #1976d2;
+  border: 1rpx solid rgba(25, 118, 210, 0.2);
+}
+
+/* 身高限制标签 */
+.height-tag {
+  background-color: rgba(255, 143, 0, 0.08);
+  color: #f57c00;
+  border: 1rpx solid rgba(255, 143, 0, 0.2);
+}
+
+/* 普通特性标签 */
+.flag-status-tag {
+  background-color: rgba(97, 97, 97, 0.06);
+  color: #757575;
+  border: 1rpx solid rgba(97, 97, 97, 0.12);
+}
+
+/* 确保flag-status-tag的第一个颜色不同 - 对应快速通道或支持快通 */
+.flag-status-tag:nth-child(1) {
+  background-color: rgba(25, 118, 210, 0.08);
+  color: #1976d2;
+  border: 1rpx solid rgba(25, 118, 210, 0.2);
+}
+
+/* 确保flag-status-tag的第二个颜色不同 - 对应身高限制 */
+.flag-status-tag:nth-child(2) {
+  background-color: rgba(255, 143, 0, 0.08);
+  color: #f57c00;
+  border: 1rpx solid rgba(255, 143, 0, 0.2);
+}
+
+/* 确保flag-status-tag的第三个及以后颜色风格统一 */
+.flag-status-tag:nth-child(n+3) {
+  background-color: rgba(97, 97, 97, 0.06);
+  color: #757575;
+  border: 1rpx solid rgba(97, 97, 97, 0.12);
+}
+
+/* 交替显示不同的颜色，使第四个和第六个标签有不同颜色 */
+.flag-status-tag:nth-child(4) {
+  background-color: rgba(67, 160, 71, 0.08);
+  color: #43a047;
+  border: 1rpx solid rgba(67, 160, 71, 0.2);
+}
+
+.flag-status-tag:nth-child(6) {
+  background-color: rgba(239, 108, 0, 0.08);
+  color: #ef6c00;
+  border: 1rpx solid rgba(239, 108, 0, 0.2);
+}
+
+/* 原始表演场次样式 */
+.show-times {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx; /* 增加间距 */
+  flex-shrink: 0;
+  min-height: 28rpx; /* 统一行高 */
+  margin-bottom: 2rpx; /* 与其他元素保持一致的间距 */
+}
+
+.show-times-label {
+  font-size: 20rpx; /* 统一字体大小 */
+  color: #666;
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+
+.show-times-icon {
+  color: #888;
+  margin-right: 6rpx; /* 增加图标右边距 */
+  font-size: 22rpx; /* 调整图标大小 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.show-time-tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6rpx; /* 增加间距 */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 28rpx; /* 统一行高 */
+}
+
+.show-time-tag {
+  font-size: 20rpx; /* 统一字体大小 */
+  padding: 0 8rpx; /* 调整内边距 */
+  border-radius: 4rpx;
+  background-color: #f5f5f5;
+  color: #666;
+  white-space: nowrap;
+  height: 28rpx; /* 统一高度 */
+  line-height: 28rpx; /* 统一行高 */
+  display: flex;
+  align-items: center;
+}
+
+.show-time-tag.next-show {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+/* 推荐查询 */
+.query-suggestions {
+  margin-top: auto; /* 将查询建议推到底部 */
+  display: flex;
+  align-items: center;
+}
+
+.query-icon {
+  color: #1976d2; /* 改为蓝色 */
+  font-size: 22rpx; /* 调整图标大小 */
+  margin-right: 8rpx; /* 增加右边距 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22rpx; /* 确保图标有固定宽度 */
+  height: 22rpx; /* 确保图标有固定高度 */
+}
+
+.query-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx; /* 增加间距 */
+}
+
+.query-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx; /* 增加内边距 */
+  border-radius: 12rpx; /* 更圆润的边角 */
+  background-color: rgba(25, 118, 210, 0.08); /* 淡蓝色背景 */
+  color: #1976d2; /* 蓝色文字 */
+  border: 1rpx solid rgba(25, 118, 210, 0.2); /* 添加淡蓝色边框 */
+  transition: all 0.3s; /* 添加过渡效果 */
+}
+
+.query-tag:active {
+  background-color: rgba(25, 118, 210, 0.15); /* 点击时背景稍深 */
+}
+
+/* 卡片底部操作按钮 */
+.card-actions {
+  display: flex;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.action-button {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.button-icon {
+  margin-right: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+}
+
+.nav-button {
+  color: #1976d2;
+  border-right: 1rpx solid #f0f0f0;
+}
+
+.favorite-button {
+  color: #666;
+}
+
+.favorite-button.favorited {
+  color: #ff9800;
+}
+
+/* 霸天虎过山车气泡样式 */
+.transformers-callout {
+  width: 300rpx;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 30px; /* 为气泡箭头留出空间 */
+  transform: translateX(-50%);
+}
+
+.transformers-callout:after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #ffffff;
+  transform: translateX(-50%);
+}
+
+.transformers-callout-header {
+  display: flex;
+  align-items: center;
+  padding: 10rpx;
+  background-color: #800000; /* 变形金刚主题暗红色 */
+}
+
+.transformers-callout-logo {
+  width: 30rpx;
+  height: 30rpx;
+  margin-right: 10rpx;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0yMSwxNy41VjEwTDI1LDdIMTdMMTMsOVYxNS41TDlIMVY5TDksN0wxMyw5VjVMMSwxMFYyMUgxN0wyMSwxNy41TTksMTMuNUw1LDE1LjVWMTdIOUwxMywxNVYxMy41TDksMTEuNVY5LjVMMTIuNSw4TDE3LDEwLjVWMTYuNUwxMywxOC41VjE2LjVMOSwxMy41WiIvPjwvc3ZnPg==');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.transformers-callout-title {
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: bold;
+}
+
+.transformers-callout-content {
+  padding: 10rpx;
+}
+
+.transformers-callout-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8rpx;
+}
+
+.transformers-callout-time {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.transformers-callout-status {
+  display: flex;
+  align-items: center;
+  margin-top: 6rpx;
+}
+
+.transformers-callout-section {
+  padding: 6rpx 10rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.transformers-callout-features {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.feature-item {
+  display: flex;
+  gap: 6rpx;
+}
+
+.feature-badge {
+  font-size: 20rpx;
+  padding: 2rpx 8rpx;
+  background-color: rgba(128, 0, 0, 0.9);
+  color: white;
+  border-radius: 4rpx;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.transformers-callout-action {
+  display: flex;
+  justify-content: center;
+  border-top: 1rpx solid #f0f0f0;
+  padding: 10rpx;
+}
+
+.transformers-callout-btn {
+  background-color: #800000;
+  color: white;
+  font-size: 24rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 4rpx;
+}
+
+/* 霸天虎过山车卡片详细信息样式 */
+.ride-description {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.5;
+  margin-top: 10rpx;
+}
+
+.ride-features {
+  margin-top: 10rpx;
+  display: flex;
+  align-items: center;
+}
+
+.feature-tag {
+  font-size: 24rpx;
+  color: #666;
+  margin-right: 10rpx;
+}
+
+.feature-rating {
+  display: flex;
+  align-items: center;
+}
+
+.rating-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  margin-right: 6rpx;
+}
+
+.rating-dot.active {
+  background-color: #800000;
+}
+
+/* 公共标记样式 */
+.status-badge {
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  font-size: 20rpx;
+  color: white;
+  margin-right: 8rpx;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 状态标签样式 */
+.status-main {
+  background-color: rgba(0, 120, 212, 0.9);
+  color: white;
+}
+
+.status-open {
+  background-color: rgba(82, 196, 26, 0.9);
+  color: white;
+}
+
+.status-good {
+  background-color: rgba(82, 196, 26, 0.9);
+  color: white;
+}
+
+.status-medium {
+  background-color: rgba(255, 169, 64, 0.9);
+  color: white;
+}
+
+.status-busy {
+  background-color: rgba(255, 77, 79, 0.9);
+  color: white;
+}
+
+/* 顶部信息大屏样式 */
+.park-dashboard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.98);
+  border-radius: 0 0 20rpx 20rpx;
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  overflow: hidden;
+  padding-bottom: 16rpx;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  border-bottom: 1rpx solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(to right, #f8f8f8, #ffffff);
+}
+
+.park-name {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.05);
+}
+
+.park-status {
+  font-size: 24rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-content {
+  display: flex;
+  padding: 16rpx 12rpx;
+  flex-wrap: wrap;
+}
+
+.dashboard-item {
+  padding: 10rpx 16rpx;
+  flex: 1;
+  min-width: 150rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.item-title {
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 6rpx;
+}
+
+.item-value {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.dashboard-divider {
+  width: 2rpx;
+  margin: 0 8rpx;
+  background-color: rgba(0, 0, 0, 0.08);
+  align-self: stretch;
+}
+
+.attractions-list, .shows-list {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.hot-attraction, .upcoming-show {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
+  padding: 6rpx 10rpx;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 12rpx;
+}
+
+/* 定义项目名称和演出名称的共同样式 */
+.attraction-name, .show-name {
+  font-size: 22rpx; /* 稍微缩小字体 */
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+}
+
+/* 定义地图标记中的项目名称专用样式 */
+.attraction-name {
+  font-size: 24rpx; /* 稍微增大字体提高可读性 */
+  font-weight: 500;
+  color: #333;
+  line-height: 1.3; /* 调整行高以便更好地显示多行文本 */
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 允许最多显示2行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%; /* 确保使用全部可用宽度 */
+  word-break: break-word; /* 使用break-word而不是break-all，以实现更自然的断行 */
+  padding: 0 4rpx;
+  max-height: none; /* 移除最大高度限制 */
+  height: auto; /* 允许自动调整高度 */
+  white-space: normal !important; /* 强制允许换行 */
+  text-overflow: ellipsis; /* 在截断时显示省略号 */
+}
+
+/* 定义演出列表中的演出名称专用样式 */
+.show-name {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.attraction-wait, .show-time {
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 左侧排队时间部分 */
+.queue-time-part {
+  width: 110rpx; /* 保持宽度固定 */
+  background: #FF9600; /* 设置默认背景色为橙色 */
+  border-radius: 12rpx 0 0 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  position: relative;
+  z-index: 2;
+  box-shadow: inset -1rpx 0 0 rgba(0, 0, 0, 0.1);
+  min-height: 80rpx; /* 与attraction-name-part一致的最小高度 */
+  /* 增强立体感 */
+  box-shadow: -2rpx 0 8rpx rgba(0, 0, 0, 0.2) inset, 0 4rpx 8rpx rgba(0, 0, 0, 0.3);
+  border: 2rpx solid rgba(255, 255, 255, 0.3);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly; /* 在垂直方向上均匀分布内容 */
+  padding: 8rpx 0; /* 添加上下内边距 */
+}
+
+/* 右侧项目名称部分 */
+.attraction-name-part {
+  flex: 1;
+  background: white;
+  border-radius: 0 12rpx 12rpx 0;
+  padding: 12rpx 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  min-height: 80rpx; /* 增加最小高度以适应双行文本 */
+  width: 240rpx; /* 增加名称部分的宽度以容纳更多文本 */
+  /* 增强立体感 */
+  box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.2);
+  border: 1rpx solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box; /* 确保padding不会增加元素尺寸 */
+}
+
+/* 排队时间数字样式 */
+.queue-time-number {
+  font-size: 38rpx;
+  font-weight: bold;
+  line-height: 1;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+  text-align: center;
+  color: white;
+  padding: 0 4rpx;
+  letter-spacing: 1rpx;
+  /* 优化数字显示 */
+  font-size: 42rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
+  margin: 2rpx 0;
+  letter-spacing: 0;
+}
+
+/* 排队时间单位样式 */
+.queue-time-unit {
+  font-size: 20rpx;
+  line-height: 1;
+  margin-top: 4rpx;
+  opacity: 0.9;
+  text-align: center;
+  color: white;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+  /* 优化单位显示 */
+  font-size: 22rpx;
+  letter-spacing: 0.5rpx;
+  margin-top: 2rpx;
+  font-weight: 500;
+}
+
+/* 根据排队时间变化左侧背景颜色 */
+.queue-time-part[data-wait-time="good"] {
+  background: #53c178; /* 绿色，表示排队时间短 */
+  background-image: linear-gradient(to bottom, rgba(104, 214, 134, 0.9), rgba(60, 174, 95, 0.9));
+}
+
+.queue-time-part[data-wait-time="medium"] {
+  background: #f5a623; /* 橙色，表示排队时间适中 */
+  background-image: linear-gradient(to bottom, rgba(250, 179, 63, 0.9), rgba(224, 147, 13, 0.9));
+}
+
+.queue-time-part[data-wait-time="busy"] {
+  background: #e64340; /* 红色，表示排队时间长 */
+  background-image: linear-gradient(to bottom, rgba(241, 93, 91, 0.9), rgba(204, 39, 36, 0.9));
+}
+
+.queue-time-part[data-wait-time="closed"] {
+  background: #888888; /* 灰色，表示已关闭 */
+  background-image: linear-gradient(to bottom, rgba(160, 160, 160, 0.9), rgba(120, 120, 120, 0.9));
+}
+
+/* 通用标记点水平布局气泡样式 */
+.custom-callout-horizontal {
+  width: 350rpx; /* 增加整体宽度，为名称部分提供更多空间 */
+  background: #ffffff;
+  border-radius: 12rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+  overflow: visible;
+  position: relative;
+  transform: translateX(-50%) translateY(-120%); /* 减小上移距离，与标记更靠近 */
+  margin-bottom: 15rpx; /* 减小底部边距 */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  border: none;
+  transition: all 0.3s ease;
+  /* 增强整体立体感 */
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%) translateY(-120%) perspective(800rpx) rotateX(2deg);
+  z-index: 5;
+  min-height: 100rpx; /* 添加最小高度以适应多行文本 */
+}
+
+.custom-callout-horizontal:after {
+  content: '';
+  position: absolute;
+  bottom: -10rpx;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 10rpx solid transparent;
+  border-right: 10rpx solid transparent;
+  border-top: 12rpx solid #ffffff;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 3rpx 3rpx rgba(0, 0, 0, 0.15));
+  z-index: 1;
+}
+
+/* 霸天虎过山车水平布局气泡 */
+.transformers-callout-horizontal {
+  width: 350rpx; /* 增加整体宽度，为名称部分提供更多空间 */
+  background: #ffffff;
+  border-radius: 12rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+  overflow: visible;
+  position: relative;
+  transform: translateX(-50%) translateY(-120%); /* 减小上移距离，与标记更靠近 */
+  margin-bottom: 15rpx; /* 减小底部边距 */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  border: none;
+  transition: all 0.3s ease;
+  /* 增强整体立体感 */
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%) translateY(-120%) perspective(800rpx) rotateX(2deg);
+  z-index: 5;
+  min-height: 100rpx; /* 添加最小高度以适应多行文本 */
+}
+
+.transformers-callout-horizontal:after {
+  content: '';
+  position: absolute;
+  bottom: -10rpx;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 10rpx solid transparent;
+  border-right: 10rpx solid transparent;
+  border-top: 12rpx solid #ffffff;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 3rpx 3rpx rgba(0, 0, 0, 0.15));
+  z-index: 1;
+}
+
+/* 地图标记样式增强 */
+.map-marker {
+  position: relative;
+  filter: drop-shadow(0 2rpx 8rpx rgba(0, 0, 0, 0.2));
+  transition: all 0.3s ease;
+  transform-origin: 50% 75%; /* 从中心偏下放大，适应三角形标记 */
+  will-change: transform;
+}
+
+.map-marker-selected {
+  filter: drop-shadow(0 4rpx 12rpx rgba(0, 0, 0, 0.4));
+  transform: scale(1.15);
+  transform-origin: 50% 75%; /* 从中心偏下放大，适应三角形标记 */
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1.15); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1.15); }
+}
+
+/* 增强霸天虎标记的显示效果 */
+.transformers-marker {
+  filter: drop-shadow(0 3rpx 12rpx rgba(0, 0, 0, 0.35));
+  z-index: 10;
+  transform-origin: 50% 75%; /* 从中心偏下放大，适应三角形标记 */
+  animation: hover 3s infinite ease-in-out;
+}
+
+@keyframes hover {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3rpx) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* 气泡内容文本样式 */
+.bubble-content {
+  font-size: 24rpx;
+  font-weight: bold;
+  line-height: 1.3;
+  text-align: center;
+  color: white;
+  padding: 0 4rpx;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2);
+}
+
+/* 其他必要图标样式 */
+.duration-icon {
+  margin-right: 6rpx;
+  color: #ff9800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.time-icon {
+  margin-right: 6rpx;
+  color: #1976d2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.location-icon {
+  margin-right: 6rpx;
+  color: #4caf50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 表演场次信息 */
+.show-times-container {
+  margin: 0; /* 移除上下边距 */
+  flex-shrink: 0; /* 防止被压缩 */
+} 

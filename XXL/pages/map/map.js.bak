@@ -1,0 +1,2005 @@
+Page({
+  data: {
+    latitude: 39.9042,
+    longitude: 116.4074,
+    markers: [],
+    scale: 16,
+    currentPark: '',
+    selectedMarker: null,
+    activeFilter: 'all', // 当前选中的筛选类型
+    allMarkers: [], // 保存所有标记点
+    showCard: false, // 是否显示卡片
+    cardInfo: null, // 卡片信息
+    customCalloutMarkerIds: [], // 需要显示自定义气泡的标记点ID
+    showParkPicker: false,
+    parks: [], // 游乐场列表
+    // 筛选状态
+    filterAttraction: true,
+    filterPerformance: true,
+    filterFavorite: false,
+    showDetailModal: false, // 是否显示详情弹窗
+    // 添加状态信息数据
+    statusData: {
+      waitTimes: {
+        good: '10分钟内',
+        medium: '30分钟内',
+        busy: '60分钟以上',
+        closed: '已关闭'
+      }
+    },
+    transformersQueueTime: 120, // 霸天虎过山车排队时间
+    transformersWaitStatus: 'busy', // 霸天虎过山车排队状态
+    lastClickTime: 0, // 添加最后点击时间戳
+    filterClosed: false, // 新增过滤关闭状态
+    filterButtons: [], // 新增筛选按钮
+  },
+  
+  // 空函数，用于阻止事件冒泡
+  noop() { },
+
+  formatShowTimes(showTimes) {
+    console.log('formatShowTimes 被调用，输入数据:', showTimes);
+    
+    if (!showTimes || !Array.isArray(showTimes)) {
+      console.log('showTimes 无效:', showTimes);
+      return '常驻演出'; // 如果没有场次信息，显示常驻演出
+    }
+
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    console.log('当前时间:', currentTime);
+
+    const shows = showTimes
+      .filter(show => {
+        const time = show.nv_time || show.time;
+        console.log('检查场次:', time, '是否大于当前时间:', time >= currentTime);
+        return time >= currentTime;
+      })
+      .slice(0, 5);
+    
+    console.log('过滤后的场次:', shows);
+    
+    if (shows.length === 0) {
+      return '常驻演出'; // 如果没有未来场次，显示常驻演出
+    }
+    
+    const formattedShows = shows.map(show => {
+      const time = show.nv_time || show.time;
+      const isFull = show.nv_isFull || show.isFull;
+      const formatted = isFull ? `${time}(已满)` : time;
+      console.log('格式化场次:', time, '->', formatted);
+      return formatted;
+    });
+
+    const moreText = showTimes.length > 5 ? '...' : '';
+    const result = formattedShows.join('、') + moreText;
+    console.log('最终格式化结果:', result);
+    return result;
+  },
+
+  onLoad() {
+    const app = getApp();
+    // 从全局数据获取游乐场列表
+    const parks = Object.keys(app.globalData.parks).map(name => ({
+      id: app.globalData.parks[name].id,
+      name: name
+    }));
+    
+    // 从全局数据获取当前游乐场
+    const currentPark = app.globalData.currentPark;
+    const parkData = app.globalData.parks[currentPark];
+    
+    // 生成筛选按钮
+    const filterButtons = this.generateFilterButtons(currentPark);
+    
+    this.setData({
+      parks,
+      currentPark,
+      latitude: parkData.latitude,
+      longitude: parkData.longitude,
+      filterButtons, // 设置筛选按钮
+      activeFilter: parkData.filterConfig?.defaultFilter || 'all', // 默认筛选类型
+      filterClosed: false
+    });
+    
+    // 检查全局数据中是否有当前游乐场的数据
+    const allItems = app.globalData.allItems[currentPark] || [];
+    console.log('allItems:', allItems);
+    if (allItems && allItems.length > 0) {
+      // 如果有数据，直接更新地图位置和标记点
+      this.updateMapLocation(currentPark, allItems);
+    } else {
+      // 如果没有数据，加载数据
+      this.loadParkData();
+    }
+  },
+
+  // 生成筛选按钮
+  generateFilterButtons(parkName) {
+    const app = getApp();
+    const parkData = app.globalData.parks[parkName];
+    if (!parkData || !parkData.apiConfig) return [];
+    
+    // 基础筛选按钮
+    const buttons = [
+      {
+        type: 'all',
+        text: '全部'
+      }
+    ];
+    
+    // 遍历API配置，添加数据类型筛选按钮
+    Object.keys(parkData.apiConfig).forEach(key => {
+      const config = parkData.apiConfig[key];
+      
+      // 跳过补充信息和不显示在筛选中的类型
+      if (key === 'otherInfo' || !config.dataType) return;
+      
+      // 获取数据类型配置
+      const dataTypeConfig = app.globalData.dataTypes[config.dataType];
+      if (!dataTypeConfig || !dataTypeConfig.showInFilter) return;
+      
+      // 添加筛选按钮
+      buttons.push({
+        type: config.dataType,
+        text: config.displayName || dataTypeConfig.filterText
+      });
+    });
+    
+    // 添加收藏筛选按钮
+    buttons.push({
+      type: 'favorite',
+      text: '我的收藏'
+    });
+    
+    // 添加过滤关闭的开关
+    if (parkData.filterConfig?.showFilterClosed) {
+      buttons.push({
+        type: 'closed',
+        text: '过滤关闭',
+        isToggle: true
+      });
+    }
+    
+    return buttons;
+  },
+
+  // 加载游乐场数据
+  loadParkData() {
+    const app = getApp();
+    const currentPark = this.data.currentPark;
+    
+    console.log('加载游乐场数据，当前游乐场:', currentPark);
+    
+    if (!currentPark) {
+      wx.showToast({
+        title: '请先选择游乐场',
+        icon: 'none'
+      });
+      return Promise.reject(new Error('未选择游乐场'));
+    }
+
+    wx.showLoading({
+      title: '加载中...',
+    });
+
+    // 确保游乐场数据已初始化
+    const { initParkData } = require('../../utils/data');
+    initParkData(app.globalData);
+
+    const { getParkData } = require('../../utils/data');
+    return getParkData(currentPark, app.globalData.token)
+      .then(data => {
+        // 更新地图位置和标记点
+        this.updateMapLocation(currentPark, data);
+        wx.hideLoading();
+        return data;
+      })
+      .catch(error => {
+        console.error('加载游乐场数据失败:', error);
+        wx.hideLoading();
+        wx.showToast({
+          title: error.message || '加载失败',
+          icon: 'none'
+        });
+        throw error; // 将错误继续传递
+      });
+  },
+
+  onShow() {
+    // 每次页面显示时检查游乐场是否变化
+    const app = getApp();
+    const currentPark = app.globalData.currentPark;
+    
+    // 确保收藏数据存在
+    const { initParkData } = require('../../utils/data');
+    initParkData(app.globalData);
+    
+    console.log('地图页面显示，当前游乐场:', currentPark);
+    console.log('收藏数据:', app.globalData.favorites[currentPark]);
+    
+    if (currentPark && currentPark !== this.data.currentPark) {
+      this.setData({
+        currentPark: currentPark
+      });
+      this.updateMapLocation(currentPark);
+    }
+  },
+
+  // 处理筛选按钮点击
+  handleFilter(e) {
+    const type = e.currentTarget.dataset.type;
+    const button = this.data.filterButtons.find(btn => btn.type === type);
+    
+    if (button && button.isToggle) {
+      // 处理切换按钮（如"过滤关闭"）
+      this.setData({
+        filterClosed: !this.data.filterClosed
+      });
+    } else {
+      // 处理普通筛选按钮
+      this.setData({
+        activeFilter: type
+      });
+    }
+    
+    // 应用筛选
+    this.filterMarkers();
+  },
+
+  // 根据类型筛选标记点
+  filterMarkers() {
+    const app = getApp();
+    const currentPark = this.data.currentPark;
+    const allMarkers = this.data.allMarkers || [];
+    
+    if (!allMarkers || allMarkers.length === 0) {
+      console.log('没有标记点可筛选');
+      return;
+    }
+    
+    console.log('开始筛选标记点，当前筛选条件:', this.data.activeFilter, '过滤关闭项目:', this.data.filterClosed);
+    
+    // 根据当前筛选条件过滤标记点
+    let filteredMarkers = [...allMarkers];
+    
+    // 如果选择了筛选类型
+    if (this.data.activeFilter !== 'all') {
+      if (this.data.activeFilter === 'favorite') {
+        // 筛选收藏项目
+        const favorites = app.globalData.favorites[currentPark] || [];
+        filteredMarkers = filteredMarkers.filter(marker => 
+          favorites.some(fav => fav === marker.id)
+        );
+      } else {
+        // 按类型筛选
+        filteredMarkers = filteredMarkers.filter(marker => marker.type === this.data.activeFilter);
+      }
+    }
+    
+    // 是否过滤已关闭项目
+    if (this.data.filterClosed) {
+      filteredMarkers = filteredMarkers.filter(marker => {
+        // 获取数据类型配置
+        const dataTypeConfig = app.globalData.dataTypes[marker.type];
+        if (!dataTypeConfig) return true; // 如果没有配置，默认显示
+        
+        // 使用配置中的状态字段和值判断
+        const statusField = dataTypeConfig.statusField;
+        const statusValue = dataTypeConfig.statusValue;
+        
+        if (!statusField) return true; // 如果没有状态字段，默认显示
+        
+        return marker[statusField] !== statusValue;
+      });
+    }
+    
+    console.log('筛选后的标记点数量:', filteredMarkers.length);
+    
+    // 如果没有匹配的标记点
+    if (filteredMarkers.length === 0) {
+      wx.showToast({
+        title: '没有匹配的项目',
+        icon: 'none',
+        duration: 2000
+      });
+      
+      // 显示所有可用标记点
+      this.setData({
+        markers: allMarkers
+      });
+      return;
+    }
+    
+    // 生成筛选后的标记点ID数组用于自定义气泡
+    const markerIds = filteredMarkers.map(marker => marker.id).filter(id => typeof id === 'number');
+    console.log('筛选后的自定义气泡ID:', markerIds);
+    
+    // 更新标记点和自定义气泡ID列表
+    this.setData({
+      markers: filteredMarkers,
+      customCalloutMarkerIds: markerIds // 更新筛选后的自定义气泡ID
+    });
+    
+    // 调整地图缩放和位置
+    if (filteredMarkers.length > 0) {
+      // 计算所有标记点的边界（排除游乐场标记点）
+      const validMarkers = filteredMarkers.filter(marker => {
+        // 转换经纬度为数值类型
+        const lat = parseFloat(marker.latitude);
+        const lng = parseFloat(marker.longitude);
+        
+        // 验证经纬度数据
+        const isValid = marker.id !== 'park' && 
+                       !isNaN(lat) &&
+                       !isNaN(lng);
+        
+        if (isValid) {
+          // 更新标记点的经纬度为数值类型
+          marker.latitude = lat;
+          marker.longitude = lng;
+        } else {
+          console.log('无效的标记点数据:', marker);
+        }
+        return isValid;
+      });
+      
+      console.log('有效标记点（排除游乐场）:', validMarkers);
+      
+      if (validMarkers.length > 0) {
+        let minLat = validMarkers[0].latitude;
+        let maxLat = validMarkers[0].latitude;
+        let minLng = validMarkers[0].longitude;
+        let maxLng = validMarkers[0].longitude;
+
+        validMarkers.forEach(marker => {
+          console.log('处理标记点:', marker.id, '经纬度:', marker.latitude, marker.longitude);
+          if (marker.latitude < minLat) minLat = marker.latitude;
+          if (marker.latitude > maxLat) maxLat = marker.latitude;
+          if (marker.longitude < minLng) minLng = marker.longitude;
+          if (marker.longitude > maxLng) maxLng = marker.longitude;
+        });
+
+        console.log('边界值:', {
+          minLat,
+          maxLat,
+          minLng,
+          maxLng
+        });
+
+        // 计算中心点
+        const centerLat = (minLat + maxLat) / 2;
+        const centerLng = (minLng + maxLng) / 2;
+        console.log('计算出的中心点:', centerLat, centerLng);
+
+        // 计算合适的缩放级别
+        const latDiff = maxLat - minLat;
+        const lngDiff = maxLng - minLng;
+        console.log('经纬度差值:', latDiff, lngDiff);
+        
+        let scale = 16; // 默认缩放级别
+
+        if (latDiff > 0.02 || lngDiff > 0.02) {
+          // 如果标记点分布较广，缩小地图
+          scale = 14;
+        } else if (latDiff < 0.005 && lngDiff < 0.005) {
+          // 如果标记点分布较集中，放大地图
+          scale = 18;
+        }
+        console.log('最终缩放级别:', scale);
+
+        // 更新地图位置和缩放
+        this.setData({
+          latitude: centerLat,
+          longitude: centerLng,
+          scale: scale
+        });
+      }
+    }
+
+    console.log('Marker IDs类型检查:', markers.map(m => ({ id: m.id, type: typeof m.id })));
+    console.log('customCalloutMarkerIds类型检查:', this.data.customCalloutMarkerIds);
+  },
+
+  // 更新地图位置
+  updateMapLocation(parkName, allItems) {
+    const app = getApp();
+    const park = app.globalData.parks[parkName];
+    
+    if (!park) {
+      console.error('游乐场不存在:', parkName);
+      return;
+    }
+
+    // 更新地图中心点
+    this.setData({
+      latitude: park.latitude,
+      longitude: park.longitude,
+      scale: 16
+    });
+
+    // 打印前30个元素
+    console.log('allItemsxxx:', allItems && Array.isArray(allItems) ? allItems.slice(0, 30) : allItems);
+    
+    // 更新标记点
+    const markers = this.calculateMarkerPositions(allItems);
+    
+    // 生成所有标记的ID数组用于自定义气泡
+    const markerIds = markers.map(marker => marker.id).filter(id => typeof id === 'number');
+    
+    console.log('设置自定义气泡ID:', markerIds);
+    
+    this.setData({
+      allMarkers: markers,
+      markers: markers,
+      customCalloutMarkerIds: markerIds // 更新自定义气泡的标记点ID列表
+    });
+
+    console.log('Marker IDs类型检查:', markers.map(m => ({ id: m.id, type: typeof m.id })));
+    console.log('customCalloutMarkerIds类型检查:', this.data.customCalloutMarkerIds);
+  },
+
+  // 检查项目是否已收藏
+  isItemFavorite(item) {
+    const app = getApp();
+    const { currentPark } = app.globalData;
+    const favorites = app.globalData.favorites[currentPark] || [];
+    return favorites.some(fav => fav.id === item.id);
+  },
+
+  // 处理收藏
+  handleFavorite() {
+    if (!this.data.cardInfo) return;
+    
+    const app = getApp();
+    const { currentPark } = app.globalData;
+    const item = this.data.cardInfo;
+    
+    // 确保收藏列表存在
+    if (!app.globalData.favorites) {
+      app.globalData.favorites = {};
+    }
+    if (!app.globalData.favorites[currentPark]) {
+      app.globalData.favorites[currentPark] = [];
+    }
+    
+    const favorites = app.globalData.favorites[currentPark];
+    const isFavorite = this.isItemFavorite(item);
+    
+    if (isFavorite) {
+      // 取消收藏
+      const newFavorites = favorites.filter(fav => fav.id !== item.id);
+      app.globalData.favorites[currentPark] = newFavorites;
+    } else {
+      // 添加收藏
+      favorites.push(item);
+    }
+    
+    // 更新卡片状态
+    this.setData({
+      'cardInfo.isFavorite': !isFavorite
+    });
+    
+    // 显示提示
+    wx.showToast({
+      title: isFavorite ? '已取消收藏' : '收藏成功',
+      icon: 'none'
+    });
+  },
+
+  /**
+   * 更新标记样式
+   * @param {string} id - 被点击的标记ID
+   */
+  updateMarkerStyle(id) {
+    // 使用现有的markers创建新数组
+    const updatedMarkers = this.data.markers.map(marker => {
+      if (marker.id === id) {
+        // 更新被点击的标记样式
+        return {
+          ...marker,
+          iconPath: marker.selectedIconPath || marker.iconPath, // 使用选中图标
+          width: marker.id === 999 ? 70 : 40,  // 霸天虎过山车选中时尺寸更大
+          height: marker.id === 999 ? 70 : 40,
+          zIndex: 999,
+          customCallout: {
+            ...marker.customCallout,
+            style: {
+              ...marker.customCallout.style,
+              backgroundColor: marker.bubbleColor,
+              padding: '6px 10px',
+              fontSize: '20px',
+              fontWeight: 'bolder',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
+              minWidth: '80px',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              border: '2px solid rgba(255,255,255,0.4)',
+              transform: 'translateZ(0) scale(1.05)'
+            }
+          }
+        };
+      } else {
+        // 重置其他标记样式为默认状态
+        return {
+          ...marker,
+          iconPath: marker.originalIconPath || marker.iconPath, // 使用原始图标
+          width: marker.id === 999 ? 60 : 30,
+          height: marker.id === 999 ? 60 : 30,
+          zIndex: marker.id === 999 ? 2 : 1,
+          customCallout: {
+            ...marker.customCallout,
+            style: {
+              ...marker.customCallout.style,
+              backgroundColor: marker.bubbleColor,
+              padding: '4px 8px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              boxShadow: '0 3px 6px rgba(0,0,0,0.3)',
+              minWidth: '70px',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              transform: 'translateZ(0)'
+            }
+          }
+        };
+      }
+    });
+
+    // 更新状态
+    this.setData({
+      markers: updatedMarkers
+    });
+  },
+
+  // 计算标记点位置
+  calculateMarkerPositions(allItems) {
+    const markers = [];
+    if (!allItems || !Array.isArray(allItems)) {
+      console.warn('allItems不是数组:', allItems);
+      return markers;
+    }
+    
+    // 获取全局应用数据
+    const app = getApp();
+    const dataTypes = app.globalData.dataTypes;
+    const markerStyles = app.globalData.styles.marker;
+    const currentPark = this.data.currentPark;
+    const parkConfig = app.globalData.parks[currentPark];
+    
+    // 计算园区整体状态
+    const parkStatus = this.calculateParkStatus(allItems);
+    
+    if (allItems.length > 0) {
+      allItems.forEach((item, index) => {
+        if (item && item.latitude && item.longitude && item.latitude !== 0 && item.longitude !== 0) {
+          // 确保每个标记有一个唯一的数字ID
+          const markerId = parseInt(item.number_id) || index + 100;
+          
+          // 根据项目类型设置不同的显示内容和样式
+          let queueTime = 0;
+          let waitStatus = 'medium';
+          let bubbleContent = '';
+          let bubbleColor = '';
+          
+          if (item.type === 'attraction') {
+            // 游乐项目的等待时间和状态
+            queueTime = parseInt(item.queueTime) || 0;
+            waitStatus = item.queueTime === -1 ? 'closed' : this.getWaitStatusByMinutes(queueTime);
+            
+            // 设置气泡内容和颜色
+            if (queueTime === -1) {
+              bubbleContent = '关闭状态';
+              bubbleColor = 'rgba(191, 191, 191, 0.9)'; // 灰色
+            } else {
+              bubbleContent = `${queueTime}分钟`;
+              bubbleColor = this.getQueueTimeColor(queueTime);
+            }
+          } else if (item.type === 'performance') {
+            // 表演项目计算距离下一场演出的时间
+            const availableTime = this.calculateAvailableTime(item);
+            
+            if (availableTime.waitStatus === 'closed') {
+              // 如果演出关闭或已结束
+              queueTime = availableTime.minutesUntil;  // -1表示关闭，-2表示已结束
+              waitStatus = 'closed';
+              bubbleContent = availableTime.text;
+              bubbleColor = 'rgba(191, 191, 191, 0.9)'; // 灰色
+            } else if (availableTime.minutesUntil === -3) {
+              // 如果是常驻演出
+              queueTime = availableTime.minutesUntil;  // -3表示常驻演出
+              waitStatus = availableTime.waitStatus;
+              bubbleContent = '常驻演出';
+              bubbleColor = 'rgba(82, 196, 26, 0.9)'; // 绿色
+            } else {
+              // 有下一场演出时间
+              queueTime = availableTime.minutesUntil;  // 正整数表示距离下一场演出的分钟数
+              waitStatus = availableTime.waitStatus;
+              bubbleContent = availableTime.text + (availableTime.unit ? availableTime.unit : '');
+              bubbleColor = this.getUpcomingShowColor(queueTime);
+            }
+          } else if (item.type === 'restaurant') {
+            // 餐厅
+            waitStatus = 'low';
+            bubbleContent = '餐厅';
+            bubbleColor = 'rgba(82, 196, 26, 0.9)'; // 绿色
+          } else if (item.type === 'shop') {
+            // 商店
+            waitStatus = 'low';
+            bubbleContent = '商店';
+            bubbleColor = 'rgba(82, 196, 26, 0.9)'; // 绿色
+          }
+          
+          // 获取标记类型对应的样式
+          const typeConfig = dataTypes[item.type] || {};
+          const markerStyleId = typeConfig.markerStyleId || 'default-attraction';
+          const markerStyle = markerStyles[markerStyleId] || markerStyles['default-attraction'] || {
+            width: 35,
+            height: 35,
+            zIndex: 10,
+            alpha: 0.9
+          };
+          
+          // 获取气泡样式配置
+          let calloutStyleId = typeConfig.calloutStyleId || 'default';
+          
+          // 创建自定义气泡
+          let customCallout = {
+            display: 'ALWAYS',
+            anchorY: 1.0,
+            anchorX: 0.5,
+            style: {
+              backgroundColor: bubbleColor,
+              padding: '4px 8px',
+              borderRadius: '8px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#ffffff',
+              textAlign: 'center',
+              boxShadow: '0 3px 6px rgba(0,0,0,0.3)',
+              minWidth: '70px',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              border: '2px solid rgba(255,255,255,0.3)',
+              transform: 'translateZ(0)',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'normal',
+              wordWrap: 'break-word',
+              overflow: 'visible',
+              maxWidth: 'none',
+              maxHeight: 'none',
+              textOverflow: 'clip'
+            }
+          };
+          
+          // 创建标记点
+          const marker = {
+            id: markerId,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            zIndex: markerStyle.zIndex,
+            iconPath: this.getIconPathByType(item.type, waitStatus),
+            width: markerStyle.width,
+            height: markerStyle.height,
+            alpha: markerStyle.alpha,
+            anchor: { x: 0.5, y: 0.75 },
+            customCallout: customCallout,
+            // 存储项目详细信息，用于点击时显示详情
+            name: item.name,
+            type: item.type,
+            queueTime: queueTime,
+            waitStatus: waitStatus,
+            openTime: item.openTime,
+            hasExpress: item.hasExpress,
+            location: item.location,
+            isIndoor: item.isIndoor,
+            showTimes: item.showTimes || [],
+            nextShow: item.nextShow,
+            bubbleContent: bubbleContent,
+            bubbleColor: bubbleColor,
+            // 存储识别标识
+            number_id: item.number_id,
+            detail: item.detail || '',
+            summary: item.summary || '',
+            image: item.image || '',
+            status: item.status || '开放中',
+            // 标签和推荐查询
+            flags: item.flags || [],
+            suggestedQueries: item.suggestedQueries || [],
+            // 添加项目持续时间
+            duration: item.duration || ''
+          };
+          
+          markers.push(marker);
+          console.log('添加标记点:', marker);
+        }
+      });
+    }
+    
+    // 添加霸天虎过山车特殊标记点（仅当在北京环球影城时）
+    if (this.data.currentPark === '北京环球影城') {
+      // 计算霸天虎过山车等待时间状态
+      let transformersQueueTime = 120; // 默认等待时间
+      let transformersWaitStatus = 'high';
+      
+      // 从所有项目中查找霸天虎过山车
+      const transformersRide = allItems.find(item => item.name.includes('霸天虎'));
+      if (transformersRide) {
+        transformersQueueTime = parseInt(transformersRide.queueTime) || 120;
+        transformersWaitStatus = this.getWaitStatusByMinutes(transformersQueueTime);
+      }
+      
+      // 获取标记样式
+      const attractionConfig = dataTypes['attraction'] || {};
+      const markerStyleId = attractionConfig.markerStyleId || 'default-attraction';
+      const markerStyle = markerStyles[markerStyleId] || markerStyles['default-attraction'] || {
+        width: 35,
+        height: 35,
+        zIndex: 10,
+        alpha: 0.9
+      };
+      
+      // 创建自定义气泡
+      let customCallout = {
+        display: 'ALWAYS',
+        anchorY: 1.0,
+        anchorX: 0.5,
+        style: {
+          backgroundColor: this.getQueueTimeColor(transformersQueueTime),
+          padding: '6px 10px',
+          borderRadius: '8px',
+          fontSize: '20px',
+          fontWeight: 'bolder',
+          color: '#ffffff',
+          textAlign: 'center',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
+          minWidth: '80px',
+          textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+          border: '2px solid rgba(255,255,255,0.4)',
+          transform: 'translateZ(0) scale(1.05)',
+          transition: 'all 0.2s ease',
+          whiteSpace: 'normal',
+          wordWrap: 'break-word',
+          overflow: 'visible',
+          maxWidth: 'none',
+          maxHeight: 'none',
+          textOverflow: 'clip'
+        }
+      };
+      
+      const transformersMarker = {
+        id: 999,  // 数字类型
+        latitude: 39.849929,
+        longitude: 116.686082,
+        zIndex: markerStyle.zIndex,
+        iconPath: this.getIconPathByType('attraction', transformersWaitStatus),
+        width: 60, // 更大的尺寸
+        height: 60,
+        alpha: markerStyle.alpha,
+        anchor: { x: 0.5, y: 0.75 },
+        customCallout: customCallout,
+        name: '霸天虎过山车',
+        type: 'attraction',
+        queueTime: transformersQueueTime,
+        waitStatus: transformersWaitStatus,
+        openTime: '10:00-20:00',
+        hasExpress: true,
+        location: '变形金刚基地',
+        isIndoor: false,
+        bubbleContent: `${transformersQueueTime}分钟`,
+        bubbleColor: this.getQueueTimeColor(transformersQueueTime),
+        number_id: '999',
+        detail: '与擎天柱、大黄蜂携手迎战霸天虎，体验惊险刺激的3D过山车，适合寻求刺激的游客。',
+        description: '霸天虎过山车是环球影城最受欢迎的刺激游乐项目之一，体验飞驰飙升与俯冲的刺激旅程。',
+        waitColor: 'rgba(255, 77, 79, 0.9)', // 红色表示排队时间长
+        // 确保演出场次信息存在
+        showTimes: [],
+        // 确保项目简介存在
+        summary: '霸天虎过山车是环球影城最受欢迎的刺激游乐项目之一，体验飞驰飙升与俯冲的刺激旅程。',
+        // 确保推荐查询存在
+        suggestedQueries: ['霸天虎过山车排队时间', '霸天虎过山车身高要求', '霸天虎过山车优速通'],
+        // 确保状态标签存在
+        flags: ['刺激项目', '身高限制', '优速通'],
+        // 添加默认图片
+        image: '/images/transformers_ride.png'
+      };
+      
+      markers.push(transformersMarker);
+      
+      // 更新数据
+      this.setData({
+        transformersQueueTime,
+        transformersWaitStatus
+      });
+    }
+    
+    // 对所有创建的标记应用样式初始化
+    return this.initMarkerIcons(markers);
+  },
+
+  // 获取图标路径
+  getIconPathByType(type, waitStatus) {
+    // 所有类型统一使用三角形SVG图标
+    return '/images/marker_triangle_modern_default.svg';
+  },
+
+  // 计算园区整体状态
+  calculateParkStatus(allItems) {
+    if (!allItems || !Array.isArray(allItems) || allItems.length === 0) {
+      return {
+        crowdLevel: '未知',
+        crowdColor: 'rgba(82, 196, 26, 0.9)',
+        averageWaitTime: 0,
+        openRides: 0,
+        totalRides: 0
+      };
+    }
+    
+    // 筛选游乐项目
+    const attractions = allItems.filter(item => item.type === 'attraction');
+    if (attractions.length === 0) {
+      return {
+        crowdLevel: '未知',
+        crowdColor: 'rgba(82, 196, 26, 0.9)',
+        averageWaitTime: 0,
+        openRides: 0,
+        totalRides: 0
+      };
+    }
+    
+    // 计算开放的游乐项目数量
+    const openRides = attractions.filter(item => item.queueTime !== -1).length;
+    
+    // 计算平均排队时间
+    const waitTimes = attractions
+      .filter(item => item.queueTime > 0)
+      .map(item => parseInt(item.queueTime) || 0);
+    
+    const averageWaitTime = waitTimes.length > 0 
+      ? Math.round(waitTimes.reduce((sum, time) => sum + time, 0) / waitTimes.length) 
+      : 0;
+    
+    // 根据平均排队时间确定拥挤程度
+    let crowdLevel = '';
+    let crowdColor = '';
+    
+    if (averageWaitTime < 30) {
+      crowdLevel = '人数不多';
+      crowdColor = 'rgba(82, 196, 26, 0.9)'; // 绿色
+    } else if (averageWaitTime < 60) {
+      crowdLevel = '人数适中';
+      crowdColor = 'rgba(255, 169, 64, 0.9)'; // 橙色
+    } else {
+      crowdLevel = '人数拥挤';
+      crowdColor = 'rgba(255, 77, 79, 0.9)'; // 红色
+    }
+    
+    return {
+      crowdLevel,
+      crowdColor,
+      averageWaitTime,
+      openRides,
+      totalRides: attractions.length
+    };
+  },
+
+  // 获取热门项目状态
+  getHotAttractions(allItems) {
+    if (!allItems || !Array.isArray(allItems) || allItems.length === 0) {
+      return [];
+    }
+    
+    // 筛选游乐项目并排序
+    const attractions = allItems
+      .filter(item => item.type === 'attraction' && item.queueTime !== -1)
+      .sort((a, b) => {
+        const queueTimeA = parseInt(a.queueTime) || 0;
+        const queueTimeB = parseInt(b.queueTime) || 0;
+        return queueTimeB - queueTimeA;
+      });
+    
+    // 获取排队时间最长的3个项目
+    return attractions.slice(0, 3).map(item => {
+      return {
+        name: item.name,
+        queueTime: parseInt(item.queueTime) || 0,
+        color: this.getQueueTimeColor(parseInt(item.queueTime) || 0)
+      };
+    });
+  },
+
+  // 获取近期演出信息
+  getUpcomingShows(allItems) {
+    if (!allItems || !Array.isArray(allItems) || allItems.length === 0) {
+      return [];
+    }
+    
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // 筛选演出项目
+    const performances = allItems.filter(item => item.type === 'performance');
+    
+    // 找出最近的3场演出
+    const upcomingShows = [];
+    
+    performances.forEach(performance => {
+      if (performance.showTimes && Array.isArray(performance.showTimes)) {
+        performance.showTimes.forEach(show => {
+          const showTime = show.nv_time || show.time;
+          if (showTime && showTime >= currentTime) {
+            upcomingShows.push({
+              name: performance.name,
+              time: showTime,
+              isFull: show.nv_isFull || show.isFull || false,
+              minutesUntil: this.calculateMinutesUntil(showTime)
+            });
+          }
+        });
+      }
+    });
+    
+    // 按时间排序
+    upcomingShows.sort((a, b) => a.minutesUntil - b.minutesUntil);
+    
+    // 返回最近的3场演出
+    return upcomingShows.slice(0, 3).map(show => {
+      return {
+        name: show.name,
+        time: show.time,
+        isFull: show.isFull,
+        minutesUntil: show.minutesUntil,
+        color: this.getUpcomingShowColor(show.minutesUntil),
+        waitStatus: this.getWaitStatusByMinutes(show.minutesUntil)
+      };
+    });
+  },
+
+  // 计算距离演出开始的分钟数
+  calculateMinutesUntil(showTime) {
+    // 如果showTime是"已关闭"或"暂无演出"等特殊值，直接返回-1
+    if (!showTime || showTime === "已关闭" || showTime === "暂无演出" || showTime === "常驻演出") {
+      return -1;
+    }
+    
+    // 检查是否是有效的时间格式 (HH:MM)
+    if (!/^\d{1,2}:\d{2}$/.test(showTime)) {
+      console.warn('无效的时间格式:', showTime);
+      return -1;
+    }
+    
+    const now = new Date();
+    const [showHours, showMinutes] = showTime.split(':').map(Number);
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // 计算时间差，如果为负数说明已经过了今天的场次
+    const minutes = (showHours - currentHours) * 60 + (showMinutes - currentMinutes);
+
+    // 如果时间差为负数，说明已经过了今天的场次，返回-1
+    if (minutes < 0) {
+      return -1;
+    }
+    
+    return minutes;
+  },
+
+  // 根据排队时间获取对应的背景颜色
+  getQueueTimeColor(queueTime) {
+    if (queueTime === -1) {
+      return 'rgba(191, 191, 191, 0.9)'; // 关闭状态使用灰色
+    } else if (queueTime >= 60) {
+      return 'rgba(255, 77, 79, 0.9)'; // 红色，60分钟以上
+    } else if (queueTime >= 30) {
+      return 'rgba(255, 169, 64, 0.9)'; // 橙色，30-59分钟
+    } else {
+      return 'rgba(82, 196, 26, 0.9)'; // 绿色，30分钟以下
+    }
+  },
+
+  // 根据距离演出开始的时间获取对应的颜色
+  getUpcomingShowColor(minutesUntil) {
+    if (minutesUntil > 60) {
+      return 'rgba(255, 77, 79, 0.9)';
+    } else if (minutesUntil > 30) {
+      return 'rgba(255, 169, 64, 0.9)';
+    } else {
+      return 'rgba(82, 196, 26, 0.9)';
+    }
+  },
+
+  // 根据下一场演出时间获取对应的背景颜色
+  getNextShowColor(nextShow, openTime) {
+    if (nextShow === '暂无演出') {
+      return 'rgba(191, 191, 191, 0.9)'; // 灰色，表示暂无演出
+    }
+
+    // 如果是常驻演出（没有具体时间），检查是否在开放时间内
+    if (!nextShow || nextShow === '常驻演出') {
+      if (!openTime) return 'rgba(82, 196, 26, 0.9)';
+      
+      const [openStart, openEnd] = openTime.split('-');
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      if (currentTime >= openStart && currentTime <= openEnd) {
+        return 'rgba(82, 196, 26, 0.9)';
+      } else {
+        const minutesUntilOpen = this.calculateMinutesUntil(openStart);
+        return { 
+          text: `${minutesUntilOpen}`, 
+          unit: '分钟', 
+          waitStatus: this.getWaitStatusByMinutes(minutesUntilOpen), 
+          minutesUntil: minutesUntilOpen 
+        };
+      }
+    }
+
+    // 解析下一场演出时间
+    const [hours, minutes] = nextShow.split(':').map(Number);
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // 计算距离下一场演出的分钟数
+    let minutesUntilShow = (hours - currentHours) * 60 + (minutes - currentMinutes);
+    if (minutesUntilShow < 0) {
+      minutesUntilShow += 24 * 60; // 如果已经过了今天的时间，计算到明天的时间
+    }
+
+    // 根据距离下一场演出的时间返回不同的颜色
+    if (minutesUntilShow <= 30) {
+      return 'rgba(82, 196, 26, 0.9)'; // 绿色，30分钟内开始
+    } else if (minutesUntilShow <= 60) {
+      return 'rgba(255, 169, 64, 0.9)'; // 橙色，30-60分钟内开始
+    } else {
+      return 'rgba(255, 77, 79, 0.9)'; // 红色，60分钟以上开始
+    } 
+  },
+
+  // 处理导航
+  handleNavigation() {
+    console.log('handleNavigation called');
+    console.log('cardInfo:', this.data.cardInfo);
+    console.log('selectedMarker:', this.data.selectedMarker);
+
+    if (!this.data.cardInfo) {
+      console.log('No cardInfo available');
+      wx.showToast({
+        title: '请先选择目的地',
+        icon: 'none'
+      });
+      return;
+    }
+
+    const { latitude, longitude, name } = this.data.cardInfo;
+    console.log('Navigation details:', { latitude, longitude, name });
+    
+    // 确保经纬度是数字类型
+    const numLatitude = Number(latitude);
+    const numLongitude = Number(longitude);
+    
+    if (isNaN(numLatitude) || isNaN(numLongitude)) {
+      console.error('Invalid latitude or longitude:', { latitude, longitude });
+      wx.showToast({
+        title: '无效的经纬度',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 打开微信内置地图
+    wx.openLocation({
+      latitude: numLatitude,
+      longitude: numLongitude,
+      name,
+      scale: 18,
+      success: () => {
+        console.log('Navigation started successfully');
+      },
+      fail: (error) => {
+        console.error('Navigation failed:', error);
+      }
+    });
+  },
+
+  // 计算字符长度（中文2个字符，英文1个字符）
+  calculateStringLength(str) {
+    if (!str) return 0;
+    let len = 0;
+    for (let i = 0; i < str.length; i++) {
+      if (str.charCodeAt(i) > 127 || str.charCodeAt(i) === 94) {
+        len += 2;
+      } else {
+        len += 1;
+      }
+    }
+    return len;
+  },
+
+  // 自动截取标签，总长度不超过32个字符
+  truncateFlags(flags) {
+    if (!flags || !Array.isArray(flags) || flags.length === 0) return [];
+    
+    let totalLength = 0;
+    const result = [];
+    
+    for (let i = 0; i < flags.length; i++) {
+      const flagLength = this.calculateStringLength(flags[i]);
+      if (totalLength + flagLength <= 32) {
+        result.push(flags[i]);
+        totalLength += flagLength;
+      } else {
+        break;
+      }
+    }
+    
+    return result;
+  },
+
+  // 计算游乐项目或演出能够玩上的时间
+  calculateAvailableTime(marker) {
+    if (!marker) return { text: '未知', unit: '', waitStatus: 'medium' };
+
+    // 获取园区营业时间
+    const app = getApp();
+    const { currentPark } = app.globalData;
+    const parkData = app.globalData.parks[currentPark];
+    
+    // 默认园区营业时间，如果没有获取到特定园区的营业时间
+    let parkOperatingHours = "09:00-21:00";
+    
+    // 如果parkData中有operatingHours属性，优先使用
+    if (parkData && parkData.operatingHours) {
+      parkOperatingHours = parkData.operatingHours;
+    } else {
+      // 尝试从其他全局数据获取
+      const allItems = app.globalData.allItems[currentPark] || [];
+      if (allItems.length > 0) {
+        for (const item of allItems) {
+          if (item.openTime) {
+            parkOperatingHours = item.openTime;
+            break;
+          }
+        }
+      }
+    }
+    
+    // 判断当前时间是否在园区营业时间内
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinutes.toString().padStart(2, '0')}`;
+    
+    // 解析园区营业时间
+    const [parkOpenStart, parkOpenEnd] = parkOperatingHours.split('-');
+    
+    // 根据项目类型处理
+    if (marker.type === 'attraction') {
+      // 如果是Attraction类且有排队时间，说明已经可以游玩，不检查开园时间
+      if (marker.queueTime > 0) {
+        if (marker.queueTime <= 30) {
+          return { text: `${marker.queueTime}`, unit: '分钟', waitStatus: 'good', minutesUntil: marker.queueTime };
+        } else if (marker.queueTime <= 60) {
+          return { text: `${marker.queueTime}`, unit: '分钟', waitStatus: 'medium', minutesUntil: marker.queueTime };
+        } else {
+          return { text: `${marker.queueTime}`, unit: '分钟', waitStatus: 'busy', minutesUntil: marker.queueTime };
+        }
+      }
+    }
+      
+    // 如果当前时间在园区营业时间范围外，则所有项目都显示关闭状态
+    if (currentTime < parkOpenStart || currentTime > parkOpenEnd) {
+      return { text: '已关闭', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+      
+    }
+    // 根据项目类型处理 - 在园区开放时间内
+    if (marker.type === 'attraction') {
+      // 游乐项目显示排队时间
+      if (marker.queueTime < 0) {
+        return { text: '已关闭', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+      } else {
+        // 根据排队时间返回不同的状态
+        let waitStatus = 'good';
+        if (marker.queueTime >= 60) {
+          waitStatus = 'busy';
+        } else if (marker.queueTime >= 30) {
+          waitStatus = 'medium';
+        }
+        return { text: `${marker.queueTime}`, unit: '分钟', waitStatus };
+      }
+    } else if (marker.type === 'performance') {
+      // 演出项目计算距离下一场的时间
+      
+      // 1. 首先检查项目状态
+      if (marker.status === "已关闭") {
+        return { text: '已关闭', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+      }
+
+      // 2. 检查是否是常驻演出
+      if (marker.isLiveShow) {
+        if (marker.status === "开放中") {
+          return { text: '常驻演出', unit: '', waitStatus: 'good', minutesUntil: -3 };
+        } else {
+          return { text: '暂无演出', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+        }
+      }
+
+      // 3. 检查开放时间
+      if (marker.status === "开放中" && marker.openTime) {
+        const [openStart, openEnd] = marker.openTime.split('-');
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        
+        // 如果当前时间在开放时间内
+        if (currentTime >= openStart && currentTime <= openEnd) {
+          // 检查是否有演出场次信息
+          if (!marker.showTimes || marker.showTimes.length === 0) {
+            return { text: '常驻演出', unit: '', waitStatus: 'good', minutesUntil: -3 };
+          }
+        } else {
+          // 如果不在开放时间内
+          if (currentTime < openStart) {
+            const minutesUntilOpen = this.calculateMinutesUntil(openStart);
+            return { 
+              text: `${minutesUntilOpen}`, 
+              unit: '分钟', 
+              waitStatus: this.getWaitStatusByMinutes(minutesUntilOpen), 
+              minutesUntil: minutesUntilOpen 
+            };
+          } else {
+            return { text: '已结束', unit: '', waitStatus: 'closed', minutesUntil: -2 };
+          }
+        }
+      }
+
+      // 4. 检查是否有演出场次信息
+      if (!marker.showTimes || marker.showTimes.length === 0) {
+        return { text: '暂无演出', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+      }
+
+      // 5. 查找下一场演出
+      let nextShow = null;
+      let minDiff = Infinity;
+      let allShowsPassed = true; // 标记是否所有场次都已结束
+      
+      // 先尝试从nextShow字段获取
+      if (marker.nextShow) {
+        const minutesUntil = this.calculateMinutesUntil(marker.nextShow);
+        
+        // 如果计算结果为-1，表示无效时间或已关闭
+        if (minutesUntil < 0) {
+          return { text: '暂无演出', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+        }
+        
+        let waitStatus = this.getWaitStatusByMinutes(minutesUntil);
+        return { 
+          text: minutesUntil <= 0 ? '即将开始' : `${minutesUntil}`, 
+          unit: minutesUntil <= 0 ? '' : '分钟', 
+          waitStatus: waitStatus,
+          minutesUntil: minutesUntil
+        };
+      }
+      
+      // 5. 如果没有nextShow字段，从所有场次中查找
+      for (const show of marker.showTimes) {
+        const showTime = show.time || show.nv_time;
+        if (!showTime) continue;
+        
+        const minutesUntil = this.calculateMinutesUntil(showTime);
+        if (minutesUntil >= 0) {
+          allShowsPassed = false; // 发现还有未开始的场次
+          if (minutesUntil < minDiff) {
+            minDiff = minutesUntil;
+            nextShow = showTime;
+          }
+        }
+      }
+      
+      // 如果所有场次都已结束
+      if (allShowsPassed) {
+        return { text: '已结束', unit: '', waitStatus: 'closed', minutesUntil: -2 };
+      }
+      
+      if (nextShow) {
+        // 有下一场演出
+        const minutesUntil = minDiff;
+        let waitStatus = this.getWaitStatusByMinutes(minutesUntil);
+        
+        return { 
+          text: minutesUntil <= 0 ? '即将开始' : `${minutesUntil}`, 
+          unit: minutesUntil <= 0 ? '' : '分钟', 
+          waitStatus: waitStatus,
+          minutesUntil: minutesUntil
+        };
+      } else {
+        // 今天没有更多演出
+        return { text: '暂无演出', unit: '', waitStatus: 'closed', minutesUntil: -1 };
+      }
+    }
+    
+    // 默认返回
+    return { text: '未知', unit: '', waitStatus: 'medium' };
+  },
+
+  // 标记点点击事件处理
+  markertap(e) {
+    console.log('标记点点击事件:', e);
+    // 从事件中获取标记ID
+    const markerId = e.markerId || (e.detail && e.detail.markerId);
+    if (!markerId) {
+      console.warn('未找到标记ID:', e);
+      return;
+    }
+    
+    console.log('标记点点击:', markerId);
+    
+    // 防止快速点击
+    const now = Date.now();
+    if (now - this.data.lastClickTime < 500) {
+      console.log('点击过于频繁，忽略此次点击');
+      return;
+    }
+    this.setData({
+      lastClickTime: now
+    });
+    
+    // 查找被点击的标记点
+    const marker = this.data.markers.find(m => m.id === markerId);
+    if (!marker) {
+      console.warn('未找到标记点:', markerId);
+      return;
+    }
+    
+    console.log('找到标记点:', marker);
+    
+    // 更新标记点样式
+    this.updateMarkerStyle(markerId);
+    
+    // 使用updateInfoCard更新信息卡片
+    this.updateInfoCard(marker);
+    
+    // 检查卡片显示状态
+    console.log('卡片显示状态:', this.data.showCard);
+    console.log('卡片信息:', this.data.cardInfo);
+    
+    // 确保卡片显示状态为true
+    if (!this.data.showCard) {
+      console.warn('手动设置卡片显示状态为true');
+      this.setData({
+        showCard: true
+      });
+    }
+  },
+
+  // 更新信息卡片内容
+  updateInfoCard(marker) {
+    const app = getApp();
+    if (!marker) {
+      console.error('updateInfoCard: marker参数为空');
+      return;
+    }
+    
+    console.log('更新信息卡片, marker=', marker);
+    
+    // 获取数据类型配置
+    const dataTypeConfig = app.globalData.dataTypes[marker.type];
+    if (!dataTypeConfig) {
+      console.warn('未找到数据类型配置:', marker.type);
+      
+      // 如果没有找到数据类型配置，使用默认配置
+      const cardInfo = {
+        ...marker,
+        template: 'attractionTemplate', // 默认使用景点模板
+        isFavorite: false,
+        timeUnit: '分钟',
+        waitTime: marker.queueTime,
+        waitUnit: '分钟',
+        waitStatus: this.getWaitStatusByValue(marker.queueTime)
+      };
+      
+      this.setData({
+        selectedMarker: marker,
+        showCard: true,
+        cardInfo
+      });
+      
+      console.log('使用默认配置创建cardInfo:', cardInfo);
+      return;
+    }
+    
+    console.log('标记点数据类型:', marker.type);
+    console.log('标记点数据:', marker);
+    console.log('数据类型配置:', dataTypeConfig);
+    
+    // 获取当前园区配置
+    const currentPark = this.data.currentPark;
+    const parkConfig = app.globalData.parks[currentPark];
+    
+    // 尝试获取园区特定配置
+    let parkSpecificCardConfig = null;
+    if (parkConfig && parkConfig.apiConfig) {
+      // 查找与数据类型匹配的API配置
+      for (const key in parkConfig.apiConfig) {
+        const apiConfig = parkConfig.apiConfig[key];
+        if (apiConfig.dataType === marker.type && apiConfig.cardConfig) {
+          parkSpecificCardConfig = apiConfig.cardConfig;
+          break;
+        }
+      }
+    }
+    
+    // 确定卡片类型，优先使用园区特定配置
+    let cardType = dataTypeConfig.cardType;
+    let template = null;
+    let fields = null;
+    let style = null;
+    
+    if (parkSpecificCardConfig) {
+      // 使用园区特定模板（如果有）
+      if (parkSpecificCardConfig.template) {
+        template = parkSpecificCardConfig.template;
+      }
+      // 使用园区特定字段（如果有）
+      if (parkSpecificCardConfig.fields) {
+        fields = parkSpecificCardConfig.fields;
+      }
+      // 使用园区特定样式（如果有）
+      if (parkSpecificCardConfig.style) {
+        style = parkSpecificCardConfig.style;
+      }
+    }
+    
+    // 获取默认卡片配置
+    const cardConfig = app.globalData.cardTypes[cardType];
+    if (!cardConfig) {
+      console.warn('未找到卡片配置:', cardType);
+      
+      // 使用默认模板
+      template = 'attractionTemplate';
+      console.log('使用默认模板:', template);
+    } else {
+      // 如果没有园区特定配置，则使用默认配置
+      if (!template) template = cardConfig.template;
+      if (!fields) fields = cardConfig.fields;
+      if (!style) style = cardConfig.style;
+    }
+    
+    console.log('卡片类型:', cardType);
+    console.log('使用的模板:', template);
+    
+    // 确保模板名称有效
+    if (!template) {
+      console.warn('模板名称无效，使用默认模板');
+      template = 'attractionTemplate'; // 使用默认模板
+    }
+    
+    // 检查项目是否被收藏
+    const favorites = app.globalData.favorites[this.data.currentPark] || [];
+    const isFavorite = favorites.some(fav => fav === marker.id);
+    
+    // 根据不同类型设置等待状态
+    let waitTime = null;
+    let waitUnit = null;
+    let waitStatus = null;
+    
+    if (marker.type === 'attraction') {
+      waitTime = marker.queueTime;
+      waitUnit = dataTypeConfig.timeUnit || '分钟';
+      waitStatus = this.getWaitStatusByValue(marker.queueTime);
+    } else if (marker.type === 'performance') {
+      if (marker.nextShow) {
+        waitTime = marker.nextShow.minutesUntil;
+        waitUnit = '分钟后';
+        waitStatus = this.getWaitStatusByMinutes(marker.nextShow.minutesUntil);
+      } else {
+        waitTime = '暂无';
+        waitUnit = '';
+        waitStatus = 'closed';
+      }
+    }
+    
+    // 构建卡片数据
+    const cardInfo = {
+      ...marker,
+      isFavorite,
+      template: template,
+      fields: fields,
+      style: style,
+      timeUnit: dataTypeConfig.timeUnit || '',
+      waitTime,
+      waitUnit,
+      waitStatus,
+      // 主题颜色配置
+      theme: parkConfig?.theme || {}
+    };
+    
+    // 更新状态
+    this.setData({
+      selectedMarker: marker,
+      showCard: true,
+      cardInfo
+    });
+    
+    console.log('卡片信息已更新:', JSON.stringify(cardInfo));
+    console.log('模板名称:', cardInfo.template);
+  },
+  
+  // 根据等待时间值获取等待状态
+  getWaitStatusByValue(value) {
+    if (value === undefined || value === null || value < 0) {
+      return 'closed';
+    } else if (value <= 15) {
+      return 'good';
+    } else if (value <= 45) {
+      return 'medium';
+    } else {
+      return 'busy';
+    }
+  },
+
+  // 点击地图空白区域关闭信息卡片
+  handleMapTap() {
+    // 检查是否有卡片显示
+    if (this.data.showCard) {
+      this.setData({
+        showCard: false,
+        selectedMarker: null
+      });
+    }
+  },
+
+  // 关闭卡片
+  handleCloseCard() {
+    this.setData({
+      showCard: false,
+      selectedMarker: null
+    });
+  },
+
+  // 处理收藏按钮点击
+  handleFavorite() {
+    if (!this.data.cardInfo) return;
+    
+    const app = getApp();
+    const currentPark = this.data.currentPark;
+    const itemId = this.data.cardInfo.id;
+    
+    // 确保收藏数组已初始化
+    if (!app.globalData.favorites[currentPark]) {
+      app.globalData.favorites[currentPark] = [];
+    }
+    
+    const favorites = app.globalData.favorites[currentPark];
+    const isFavorite = favorites.includes(itemId);
+    
+    // 切换收藏状态
+    if (isFavorite) {
+      // 从收藏列表中移除
+      const index = favorites.indexOf(itemId);
+      if (index > -1) {
+        favorites.splice(index, 1);
+      }
+    } else {
+      // 添加到收藏列表
+      favorites.push(itemId);
+    }
+    
+    // 更新界面显示
+    this.setData({
+      'cardInfo.isFavorite': !isFavorite
+    });
+    
+    // 保存收藏数据到本地存储
+    wx.setStorageSync('favorites', app.globalData.favorites);
+    
+    // 提示用户
+    wx.showToast({
+      title: !isFavorite ? '已收藏' : '已取消收藏',
+      icon: 'success',
+      duration: 1500
+    });
+  },
+
+  // 获取当前位置
+  getCurrentLocation() {
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        this.setData({
+          latitude: res.latitude,
+          longitude: res.longitude
+        });
+      }
+    });
+  },
+
+  // 处理刷新
+  handleRefresh() {
+    wx.showLoading({
+      title: '刷新中...',
+    });
+    
+    // 保存当前的筛选状态
+    const currentFilter = this.data.activeFilter;
+    const currentFilterClosed = this.data.filterClosed;
+    
+    // 重新加载数据
+    this.loadParkData()
+      .then(() => {
+        // 确保使用原始的筛选状态
+        if (currentFilter !== 'all' || currentFilterClosed) {
+          this.setData({
+            activeFilter: currentFilter,
+            filterClosed: currentFilterClosed
+          }, () => {
+            // 手动触发筛选
+            this.filterMarkers();
+          });
+        }
+        
+        wx.hideLoading();
+        wx.showToast({
+          title: '刷新成功',
+          icon: 'success'
+        });
+      })
+      .catch(error => {
+        wx.hideLoading();
+        wx.showToast({
+          title: error.message || '刷新失败',
+          icon: 'none'
+        });
+      });
+  },
+
+  // 获取演出场次信息
+  getShowTimes(showTimes) {
+    if (!showTimes || showTimes.length === 0) return [];
+    
+    // 获取当前时间
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    // 过滤出当前时间之后的场次
+    const futureShows = showTimes.filter(show => show.time >= currentTime);
+    
+    // 如果当前时间之后的场次不足5个，则从当天第一场开始补充
+    if (futureShows.length < 5) {
+      const pastShows = showTimes.filter(show => show.time < currentTime);
+      futureShows.push(...pastShows);
+    }
+    
+    // 取前5个场次
+    return futureShows.slice(0, 5);
+  },
+
+  // 显示卡片
+  showCard(marker) {
+    // 确保marker存在
+    if (!marker) {
+      console.warn('显示卡片失败: marker为空');
+      return;
+    }
+    
+    // 卡片已经在updateInfoCard中生成了cardInfo
+    // 只需要设置显示状态
+    this.setData({
+      showCard: true
+    });
+    
+    // 更新标记点样式
+    this.updateMarkerStyle(marker.id);
+  },
+
+  // 选择景区
+  onParkChange(e) {
+    const index = e.currentTarget.dataset.index;
+    const newPark = this.data.parks[index].name;
+    const app = getApp();
+    const parkData = app.globalData.parks[newPark];
+    
+    // 更新全局数据
+    app.globalData.currentPark = newPark;
+    
+    this.setData({
+      currentPark: newPark,
+      showParkPicker: false,
+      latitude: parkData.latitude,
+      longitude: parkData.longitude
+    });
+    
+    // 重新加载数据
+    this.loadParkData();
+  },
+
+  // 自定义气泡点击事件
+  callouttap(e) {
+    console.log('自定义气泡被点击:', e);
+    const markerId = e.markerId;
+    console.log('气泡对应的标记ID:', markerId);
+    // 处理任何标记点的气泡点击
+    const marker = this.data.markers.find(m => m.id === markerId);
+    if (marker) {
+      console.log('找到对应的标记点:', marker);
+      this.markertap({ detail: { markerId: markerId } });
+    } else {
+      console.warn('未找到ID为', markerId, '的标记点');
+    }
+  },
+
+  handleQueryClick(e) {
+    const query = e.currentTarget.dataset.query;
+    
+    // 获取当前卡片信息
+    const cardInfo = this.data.cardInfo;
+    let combinedQuery = query;
+    
+    // 如果有卡片信息，将项目名称和查询内容结合在一起
+    if (cardInfo && cardInfo.name) {
+      combinedQuery = `${cardInfo.name} ${query}`;
+    }
+    
+    console.log('要发送的查询:', combinedQuery);
+    
+    // 将查询参数存储到全局数据中，提前设置好
+    const app = getApp();
+    app.globalData.lastQuery = combinedQuery;
+    app.globalData.needSendMessage = true;
+    
+    // 跳转到index页面
+    wx.switchTab({
+      url: '/pages/index/index',
+      success: () => {
+        // 获取当前页面栈
+        const pages = getCurrentPages();
+        // 查找聊天页面实例
+        let chatPage = null;
+        for (let i = 0; i < pages.length; i++) {
+          if (pages[i].route === 'pages/index/index') {
+            chatPage = pages[i];
+            break;
+          }
+        }
+        
+        // 如果找到聊天页面实例，直接调用其方法发送消息
+        // 使用setTimeout确保页面已经完全加载和渲染
+        setTimeout(() => {
+          if (chatPage) {
+            if (app.globalData.lastQuery && app.globalData.needSendMessage) {
+              const query = app.globalData.lastQuery;
+              // 清空全局查询缓存，避免重复查询
+              app.globalData.lastQuery = null;
+              app.globalData.needSendMessage = false;
+              
+              // 如果聊天页面有handleExternalQuery方法，直接调用
+              if (chatPage.handleExternalQuery) {
+                chatPage.handleExternalQuery(query);
+              } else {
+                // 否则，设置输入值并调用sendMessage
+                chatPage.setData({
+                  inputValue: query
+                }, () => {
+                  chatPage.sendMessage();
+                });
+              }
+              
+              console.log('查询已发送:', query);
+            }
+          } else {
+            console.log('未找到聊天页面实例，请稍后再试');
+          }
+        }, 500); // 延迟500毫秒，确保页面已加载
+      }
+    });
+  },
+
+  // 处理信息卡点击
+  handleInfoCardClick(e) {
+    const { parkId } = e.currentTarget.dataset;
+    const park = this.data.parks.find(p => p.id === parkId);
+    if (park) {
+      this.setData({
+        lastClickTime: Date.now(), // 记录点击时间
+        selectedPark: park,
+        showInfoCard: true
+      });
+    }
+  },
+
+  // 处理标记点点击
+  handleMarkerClick(e) {
+    const { markerId } = e.detail;
+    const currentTime = Date.now();
+    
+    // 如果距离上次点击时间小于50ms，则不更新info card
+    if (currentTime - this.data.lastClickTime < 50) {
+      return;
+    }
+
+    const park = this.data.parks.find(p => p.id === markerId);
+    if (park) {
+      this.setData({
+        selectedPark: park,
+        showInfoCard: true
+      });
+    }
+  },
+
+  // 根据分钟数获取等待状态
+  getWaitStatusByMinutes(minutes) {
+    if (minutes <= 30) {
+      return 'good';
+    } else if (minutes <= 60) {
+      return 'medium';
+    } else {
+      return 'busy';
+    }
+  },
+
+  // 初始化标记图标路径
+  initMarkerIcons(markers) {
+    if (!markers || !Array.isArray(markers)) return [];
+    
+    const app = getApp();
+    const currentPark = this.data.currentPark;
+    const parkConfig = app.globalData.parks[currentPark];
+    const dataTypes = app.globalData.dataTypes;
+    const markerStyles = app.globalData.styles.marker;
+    
+    return markers.map(marker => {
+      // 保留原始图标路径作为默认状态
+      marker.originalIconPath = marker.iconPath;
+      
+      // 获取数据类型配置
+      const typeConfig = dataTypes[marker.type];
+      if (!typeConfig) {
+        console.warn(`未找到数据类型配置: ${marker.type}`);
+        return marker;
+      }
+      
+      // 尝试获取园区特定配置
+      let parkSpecificConfig = null;
+      if (parkConfig && parkConfig.apiConfig) {
+        // 查找与数据类型匹配的API配置
+        for (const key in parkConfig.apiConfig) {
+          const apiConfig = parkConfig.apiConfig[key];
+          if (apiConfig.dataType === marker.type && apiConfig.markerConfig) {
+            parkSpecificConfig = apiConfig.markerConfig;
+            break;
+          }
+        }
+      }
+      
+      // 应用正确的图标路径
+      // 如果原始图标路径是占位或不存在的，重新设置正确的图标路径
+      if (!marker.iconPath || marker.iconPath.includes('marker_triangle_modern_default')) {
+        marker.iconPath = this.getIconPathByType(marker.type, marker.waitStatus || 'low');
+      }
+      
+      // 根据类型设置选中状态的图标（优先使用园区特定配置）
+      if (parkSpecificConfig && parkSpecificConfig.selectedIconPath) {
+        marker.selectedIconPath = parkSpecificConfig.selectedIconPath;
+      } else if (typeConfig && typeConfig.selectedIconPath) {
+        marker.selectedIconPath = typeConfig.selectedIconPath;
+      } else {
+        // 默认选中图标（向后兼容旧代码）
+        if (marker.type === 'attraction') {
+          marker.selectedIconPath = '/images/markers/attraction_selected.png';
+        } else if (marker.type === 'performance') {
+          marker.selectedIconPath = '/images/markers/performance_selected.png';
+        } else if (marker.type === 'restaurant') {
+          marker.selectedIconPath = '/images/markers/restaurant_selected.png';
+        } else if (marker.type === 'shop') {
+          marker.selectedIconPath = '/images/shop_selected.png';
+        } else {
+          // 默认选中图标
+          marker.selectedIconPath = marker.iconPath;
+        }
+      }
+      
+      // 获取此类型标记的样式配置
+      const markerStyleId = typeConfig.markerStyleId || `default-${marker.type}`;
+      const markerStyle = markerStyles[markerStyleId] || {
+        width: 35,
+        height: 35, 
+        zIndex: 10,
+        alpha: 0.9
+      };
+      
+      // 应用样式配置
+      marker.width = markerStyle.width;
+      marker.height = markerStyle.height;
+      marker.zIndex = markerStyle.zIndex;
+      marker.alpha = markerStyle.alpha;
+      
+      // 保存选中状态尺寸信息
+      const selectedStyle = markerStyles['selected'] || {
+        width: 40,
+        height: 40,
+        zIndex: 100
+      };
+      
+      marker.selectedWidth = selectedStyle.width;
+      marker.selectedHeight = selectedStyle.height;
+      marker.selectedZIndex = selectedStyle.zIndex;
+      
+      return marker;
+    });
+  },
+
+  /**
+   * 加载地图标记点
+   */
+  async loadMarkers() {
+    try {
+      this.setData({ loading: true });
+      const db = wx.cloud.database();
+      // 从数据库获取标记点
+      const { data: markers } = await db.collection('markers').get();
+      
+      if (markers && markers.length > 0) {
+        // 初始化标记图标路径
+        const markersWithIcons = this.initMarkerIcons(markers);
+        
+        // 生成标记点ID数组用于自定义气泡
+        const markerIds = markersWithIcons.map(marker => marker.id).filter(id => typeof id === 'number');
+        console.log('设置自定义气泡ID:', markerIds);
+        
+        this.setData({
+          markers: markersWithIcons,
+          customCalloutMarkerIds: markerIds, // 设置自定义气泡ID列表
+          loading: false
+        });
+      } else {
+        this.setData({ loading: false });
+        wx.showToast({
+          title: '没有找到标记点数据',
+          icon: 'none'
+        });
+      }
+    } catch (error) {
+      console.error('加载标记点失败:', error);
+      this.setData({ loading: false });
+      wx.showToast({
+        title: '加载标记点失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 新添加的辅助函数：从项目数据中创建标记点对象
+  createMarkerFromItem(item, customProps = {}) {
+    // 需要从item中提取的基础属性列表
+    const baseProps = [
+      'latitude', 'longitude', 'name', 'type', 'openTime', 
+      'hasExpress', 'location', 'isIndoor', 'number_id', 
+      'detail', 'summary', 'image', 'status', 'duration'
+    ];
+    
+    // 需要提取但可能需要默认值的属性
+    const propsWithDefaults = {
+      'showTimes': [],
+      'nextShow': null,
+      'flags': [],
+      'suggestedQueries': []
+    };
+    
+    // 1. 创建基础marker对象
+    const marker = {};
+    
+    // 2. 添加基础属性
+    baseProps.forEach(prop => {
+      if (item[prop] !== undefined) {
+        marker[prop] = item[prop];
+      }
+    });
+    
+    // 3. 添加带默认值的属性
+    Object.keys(propsWithDefaults).forEach(prop => {
+      marker[prop] = item[prop] || propsWithDefaults[prop];
+    });
+    
+    // 4. 添加自定义属性（覆盖默认值）
+    Object.assign(marker, customProps);
+    
+    return marker;
+  },
+}); 

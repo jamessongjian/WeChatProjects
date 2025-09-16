@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">  
+  <defs>  
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">  
+      <stop offset="0%" stop-color="#ff5252"/>  
+      <stop offset="40%" stop-color="#f44336"/>  
+      <stop offset="100%" stop-color="#d32f2f"/>  
+    </linearGradient>  
+    <filter id="shadow">  
+      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.3)"/>  
+    </filter>  
+    <filter id="glow-filter">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>  
+  
+  <!-- 主三角 -->  
+  <path   
+    d="M 15 25  
+       L 85 25  
+       L 50 55   
+       Z"   
+    fill="url(#grad)"  
+    stroke="#d32f2f"  
+    stroke-width="4"  
+    stroke-linejoin="round"  
+    filter="url(#shadow)"  
+    stroke-linecap="round"/>
+    
+  <!-- 添加小星标示特殊标记 -->
+  <path
+    d="M 50 15
+       L 52 20
+       L 57 20
+       L 53 24
+       L 55 29
+       L 50 26
+       L 45 29
+       L 47 24
+       L 43 20
+       L 48 20
+       Z"
+    fill="#ffee58"
+    stroke="#fbc02d"
+    stroke-width="1"
+    filter="url(#glow-filter)"/>
+</svg> 

@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="title">路线规划测试</view>
+  <view class="description">测试步行路线规划功能</view>
+  
+  <map
+    id="map"
+    class="map"
+    longitude="{{longitude}}"
+    latitude="{{latitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    polyline="{{polyline}}"
+  ></map>
+
+  <button class="test-btn" bindtap="runTest">开始测试</button>
+  <button class="test-btn" bindtap="testWaitTimes">测试排队时间API</button>
+  <button class="test-btn" bindtap="testUpdateOptimization">测试更新优化</button>
+  <button class="test-btn" bindtap="testAllCloudFunctions" disabled="{{isTestingCloud}}">
+    {{isTestingCloud ? '测试中...' : '测试所有云函数'}}
+  </button>
+  <view class="results">
+    <block wx:for="{{testResults}}" wx:key="index">
+      <text class="result-item">{{item}}</text>
+    </block>
+  </view>
+</view> 

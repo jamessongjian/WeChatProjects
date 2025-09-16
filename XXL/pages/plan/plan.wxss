@@ -1,0 +1,985 @@
+.plan-container {
+  padding: 20rpx;
+  padding-bottom: 75px;
+  background: #f8f9fa;
+  min-height: 100vh;
+  padding-top: calc(80rpx + env(safe-area-inset-top) + 20rpx); /* 为游乐场选择器留出空间 */
+  box-sizing: border-box;
+}
+
+/* 游乐场选择器样式 - 与首页保持一致 */
+.park-selector {
+  width: 100%;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 改为左对齐 */
+  background-color: #ffffff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  padding-top: env(safe-area-inset-top); /* 适配不同机型状态栏 */
+  padding-left: 20rpx; /* 添加左边距 */
+  z-index: 9999;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 为picker组件添加高z-index */
+.park-selector picker {
+  z-index: 9999 !important;
+}
+
+.park-selector::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="25" cy="25" r="5" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="8" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="50" r="3" fill="rgba(255,255,255,0.1)"/></svg>');
+  opacity: 0.8;
+  z-index: 0;
+}
+
+.park-picker {
+  display: flex;
+  align-items: center;
+  padding: 6rpx 20rpx;
+  border-radius: 24rpx;
+  background-color: #f8f8f8;
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s ease;
+  transform: translateY(-20rpx);
+}
+
+.park-picker:active {
+  background-color: #f0f0f0;
+}
+
+.current-park {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.current-park::after {
+  content: '🎡';
+  margin-left: 6rpx;
+  font-size: 24rpx;
+}
+
+.picker-arrow {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  color: #666666;
+}
+
+/* 收藏区域样式 */
+.favorites-section {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12rpx;
+  padding-bottom: 8rpx;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 加载状态样式 */
+.loading-favorites {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 160rpx;
+}
+
+.loading-icon {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  border: 4rpx solid #f0f0f0;
+  border-top-color: #07C160;
+  animation: loading-spin 1s linear infinite;
+}
+
+.favorites-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -6rpx;
+}
+
+.favorite-item {
+  width: 20%;
+  padding: 6rpx;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.favorite-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.favorite-image {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.1);
+  border: 2rpx solid #fff;
+  transition: all 0.2s ease;
+}
+
+.favorite-content:active .favorite-image {
+  transform: scale(0.95);
+}
+
+.favorite-name {
+  font-size: 22rpx;
+  color: #333;
+  margin-top: 6rpx;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-btn {
+  position: absolute;
+  top: 0;
+  right: 6rpx;
+  width: 30rpx;
+  height: 30rpx;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.close-icon {
+  color: #fff;
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.empty-favorites {
+  padding: 40rpx 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30rpx;
+}
+
+.plan-item {
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  margin-bottom: 30rpx;
+  position: relative; /* 用于伪元素定位 */
+  border: 1rpx solid rgba(0, 0, 0, 0.05); /* 添加细微边框 */
+  transition: all 0.3s ease; /* 添加过渡效果 */
+}
+
+/* 添加装饰性标签 */
+.plan-item:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 24rpx 24rpx 0;
+  border-color: transparent #07C160 transparent transparent;
+  z-index: 5;
+}
+
+/* 添加顶部左侧装饰线 */
+.plan-item:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30%;
+  height: 6rpx;
+  background: linear-gradient(to right, #07C160, transparent);
+  z-index: 5;
+}
+
+/* 鼠标悬停效果 */
+.plan-item:active {
+  transform: translateY(2rpx);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+}
+
+.plan-header {
+  padding: 20rpx;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to right, #07C160, #36BE75); /* 添加渐变背景 */
+  border-radius: 16rpx 16rpx 0 0; /* 顶部圆角与卡片一致 */
+}
+
+.plan-title-section {
+  display: flex;
+  align-items: center;
+}
+
+.plan-actions {
+  display: flex;
+  align-items: center;
+}
+
+.favorite-btn {
+  background: transparent;
+  border: none;
+  padding: 8rpx 12rpx;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  transition: all 0.2s ease;
+}
+
+.favorite-icon {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+  transition: all 0.2s ease;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
+}
+
+.favorite-text {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+  transition: all 0.2s ease;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.3);
+}
+
+.favorite-btn.favorited .favorite-icon {
+  color: #FFD700;
+  text-shadow: 0 0 12rpx rgba(255, 215, 0, 0.8);
+}
+
+.favorite-btn.favorited .favorite-text {
+  color: #FFD700;
+  text-shadow: 0 0 8rpx rgba(255, 215, 0, 0.6);
+}
+
+.plan-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #fff; /* 改为白色以匹配背景 */
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.2); /* 添加轻微文字阴影增强可读性 */
+}
+
+.queue-savings-tip {
+  font-size: 24rpx;
+  color: #2E7D32;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  margin-left: 16rpx;
+  border: 1rpx solid rgba(76, 175, 80, 0.6);
+  font-weight: 600;
+}
+
+.plan-time {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9); /* 轻微透明白色 */
+  background: rgba(0, 0, 0, 0.1); /* 微弱的深色背景 */
+  padding: 4rpx 12rpx;
+  border-radius: 30rpx;
+}
+
+/* 规划详情样式 */
+.plan-details {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 16rpx;
+  border-bottom: 1px solid #f0f0f0;
+  background-color: #f9f9f9;
+  background: linear-gradient(to bottom, #f5f9ff, #f9f9f9);
+  border-radius: 0 0 8rpx 8rpx;
+}
+
+.detail-item {
+  width: 50%;
+  display: flex;
+  padding: 12rpx 16rpx;
+  font-size: 24rpx;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.detail-item:nth-child(odd):after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 25%;
+  height: 50%;
+  width: 1rpx;
+  background-color: #e5e5e5;
+}
+
+.detail-item:nth-child(1),
+.detail-item:nth-child(2) {
+  border-bottom: 1rpx solid #e5e5e5;
+}
+
+.detail-label {
+  color: #888;
+  margin-right: 8rpx;
+  font-size: 22rpx;
+}
+
+.detail-value {
+  color: #333;
+  font-weight: 600;
+  font-size: 24rpx;
+}
+
+.detail-item:last-child .detail-value {
+  color: #07C160;
+  position: relative;
+  padding-right: 26rpx;
+}
+
+.detail-item:last-child .detail-value:after {
+  content: '★';
+  position: absolute;
+  right: 0;
+  top: 0;
+  color: #FFC107;
+  font-size: 22rpx;
+}
+
+/* 时间线样式 */
+.timeline {
+  padding: 20rpx;
+  position: relative;
+  background: #fff; /* 确保背景为白色 */
+  border-radius: 0 0 16rpx 16rpx; /* 与规划卡片底部对齐 */
+}
+
+.timeline-item {
+  display: flex;
+  position: relative;
+  padding-bottom: 30rpx;
+  transition: all 0.3s ease; /* 添加过渡效果 */
+}
+
+.timeline-item:hover {
+  transform: translateX(4rpx); /* 悬停时微移，增加交互感 */
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-item:last-child .timeline-line {
+  display: none;
+}
+
+.timeline-dot {
+  width: 20rpx;
+  height: 20rpx;
+  background: #07C160;
+  border-radius: 50%;
+  margin-top: 10rpx;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 0 4rpx rgba(7, 193, 96, 0.2);
+}
+
+.timeline-line {
+  position: absolute;
+  left: 10rpx;
+  top: 30rpx;
+  bottom: 0;
+  width: 2rpx;
+  background: linear-gradient(to bottom, #07C160, #e0e0e0); /* 添加渐变效果 */
+  z-index: 1;
+}
+
+.timeline-content {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.time-slot {
+  margin-bottom: 10rpx;
+  display: flex;
+  align-items: center;
+}
+
+.time {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #333;
+  background: #f0f0f0;
+  padding: 4rpx 10rpx;
+  border-radius: 4rpx;
+  border-left: 3rpx solid #07C160; /* 添加左侧边框 */
+}
+
+.duration {
+  font-size: 22rpx;
+  color: #666;
+  margin-left: 10rpx;
+  background: rgba(7, 193, 96, 0.1); /* 添加轻微背景色 */
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+}
+
+.project-card {
+  background: #fff;
+  border-radius: 12rpx;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 12rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  border: 1rpx solid #f0f0f0;
+  transition: all 0.2s ease; /* 添加过渡效果 */
+}
+
+.project-card:active {
+  transform: scale(0.98); /* 点击时缩小效果 */
+  box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.08);
+}
+
+.project-image {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 8rpx;
+  object-fit: cover;
+  border: 1rpx solid rgba(0, 0, 0, 0.05); /* 添加细微边框 */
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08); /* 添加微弱阴影 */
+}
+
+.project-info {
+  flex: 1;
+  margin-left: 16rpx;
+  overflow: hidden;
+  display: flex; /* 修改为flex布局 */
+  flex-direction: column; /* 纵向排列 */
+  justify-content: space-between; /* 在垂直方向上均匀分布 */
+  min-height: 90rpx; /* 设置最小高度确保足够空间 */
+}
+
+.project-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 6rpx; /* 添加左边距 */
+  border-left: 4rpx solid #07C160; /* 添加左侧彩色边框 */
+}
+
+.project-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  align-items: center; /* 垂直居中对齐 */
+}
+
+.queue-time, .rest-time {
+  font-size: 22rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 4rpx;
+  white-space: nowrap;
+  display: flex; /* 使用flex布局 */
+  align-items: center; /* 垂直居中 */
+}
+
+.queue-time {
+  background: #fff5f5; /* 更轻微的红色背景 */
+  color: #ff6b6b;
+  border: 1rpx solid rgba(255, 107, 107, 0.2); /* 添加颜色一致的边框 */
+}
+
+.queue-time:before {
+  content: '⏱'; /* 添加时钟图标 */
+  margin-right: 4rpx;
+  font-size: 18rpx;
+}
+
+.rest-time {
+  background: #e8f5e9;
+  color: #07C160;
+  border: 1rpx solid rgba(7, 193, 96, 0.2); /* 添加颜色一致的边框 */
+}
+
+.rest-time:before {
+  content: '☕'; /* 添加休息图标 */
+  margin-right: 4rpx;
+  font-size: 18rpx;
+}
+
+.item-list {
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.item-card {
+  display: flex;
+  background: #fff;
+  border-radius: 12rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.item-image {
+  width: 200rpx;
+  height: 200rpx;
+  object-fit: cover;
+}
+
+.item-info {
+  flex: 1;
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.time-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.time-label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.time-value {
+  font-size: 24rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+/* 输入和推荐规划合并区域 */
+.input-section {
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* 输入区域样式调整 */
+.input-container {
+  display: flex;
+  padding: 16rpx;
+  align-items: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.plan-input {
+  flex: 1;
+  height: 70rpx;
+  padding: 0 20rpx;
+  border: 1px solid #eee;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  margin-right: 16rpx;
+}
+
+.plan-button {
+  height: 70rpx;
+  min-width: 70rpx;
+  max-width: 90rpx;
+  padding: 0 12rpx;
+  background: #07C160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 查询推荐区域样式 */
+.query-section {
+  padding-bottom: 8rpx;
+}
+
+.query-title {
+  padding: 12rpx 16rpx 8rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.query-title-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.query-subtitle {
+  font-size: 20rpx;
+  color: #999;
+}
+
+/* 查询词样式 */
+.query-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4rpx 12rpx;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.query-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: #e6f3ff;
+  margin: 4rpx 0;
+  padding: 8rpx 12rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  color: #1976d2;
+  position: relative;
+  border: 1rpx solid #c7e2ff;
+  box-shadow: 0 2rpx 4rpx rgba(25, 118, 210, 0.1);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.query-icon {
+  flex-shrink: 0;
+  font-size: 18rpx;
+  margin-right: 6rpx;
+}
+
+.query-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.query-item::before {
+  content: "";
+}
+
+.query-item:active {
+  background: #c7e2ff;
+  transform: scale(0.98);
+  box-shadow: 0 1rpx 2rpx rgba(25, 118, 210, 0.2);
+}
+
+/* 规划加载状态样式 */
+.planning-loading-container {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fade-in 0.3s ease;
+}
+
+.planning-loading-box {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8rpx;
+  width: 100%;
+}
+
+.planning-loading-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border: 3rpx solid #f0f0f0;
+  border-top-color: #07C160;
+  border-radius: 50%;
+  animation: loading-spin 1s linear infinite;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.planning-loading-text {
+  font-size: 28rpx;
+  color: #333;
+  letter-spacing: 1rpx;
+  display: flex;
+  align-items: center;
+}
+
+.loading-dots {
+  width: 30rpx;
+  text-align: left;
+  display: inline-block;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loading-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 标签页样式 */
+.tabs {
+  display: flex;
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: #333;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.tab.active {
+  color: #07C160;
+  font-weight: 500;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  width: 60%;
+  height: 4rpx;
+  background: #07C160;
+  border-radius: 2rpx;
+}
+
+/* 规划结果区域 */
+.plan-results {
+  margin-top: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 规划列表 */
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30rpx;
+}
+
+.plan-item {
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}
+
+.plan-header {
+  padding: 20rpx;
+  background: linear-gradient(to right, #07C160, #09b85a);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #fff;
+}
+
+.plan-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+}
+
+.plan-time, .plan-score {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.plan-summary {
+  padding: 16rpx 20rpx;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1rpx solid #eee;
+}
+
+.summary-item {
+  font-size: 24rpx;
+  color: #666;
+}
+
+/* 时间轴样式 */
+.timeline {
+  padding: 30rpx 20rpx;
+  position: relative;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 40rpx;
+  margin-bottom: 30rpx;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 0;
+  top: 10rpx;
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background: #07C160;
+  z-index: 2;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 9rpx;
+  top: 30rpx;
+  bottom: -30rpx;
+  width: 2rpx;
+  background: #e0e0e0;
+  z-index: 1;
+}
+
+.timeline-content {
+  position: relative;
+}
+
+.time-slot {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 10rpx;
+}
+
+.duration {
+  font-size: 24rpx;
+  color: #999;
+  margin-left: 10rpx;
+}
+
+.project-card {
+  background: #f9f9f9;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.05);
+}
+
+.project-image {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+  background-color: #eee;
+}
+
+.project-info {
+  flex: 1;
+}
+
+.project-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.project-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.queue-time, .rest-time {
+  font-size: 24rpx;
+  color: #666;
+  background: rgba(7, 193, 96, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 30rpx;
+}
+
+/* 空状态提示 */
+.empty-plans {
+  padding: 30px 0;
+  text-align: center;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #999;
+} 

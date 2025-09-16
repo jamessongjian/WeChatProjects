@@ -1,0 +1,48 @@
+.container {
+  padding: 20rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 20rpx;
+}
+
+.description {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+  margin-bottom: 30rpx;
+}
+
+.map {
+  width: 100%;
+  height: 500rpx;
+  margin-bottom: 30rpx;
+  border-radius: 10rpx;
+}
+
+.test-btn {
+  margin: 20rpx 0;
+  background: #07c160;
+  color: white;
+  font-size: 32rpx;
+  padding: 20rpx 0;
+}
+
+.results {
+  background: #f5f5f5;
+  padding: 20rpx;
+  border-radius: 10rpx;
+  margin-top: 20rpx;
+}
+
+.result-item {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.6;
+  margin-bottom: 10rpx;
+  white-space: pre-wrap;
+  color: #333;
+} 

@@ -1,0 +1,289 @@
+<wxs module="utils">
+  function toInt(num) {
+    if (typeof num !== 'number') {
+      num = parseFloat(num) || 0;
+    }
+    return Math.floor(num);
+  }
+  module.exports.toInt = toInt;
+</wxs>
+
+<view class="details-container">
+  <!-- 加载提示 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading"></view>
+    <text>加载中...</text>
+  </view>
+
+  <!-- 详情内容 -->
+  <block wx:if="{{!loading && item}}">
+    <!-- 头部区域：图片、名称等 -->
+    <view class="header">
+      <image class="cover-image" src="{{item.image}}" mode="aspectFill"></image>
+      <view class="header-overlay">
+        <view class="item-name">{{item.name}}</view>
+        <view class="item-location">{{item.location}}</view>
+        
+        <!-- 类型徽章 -->
+        <view class="item-type-badge {{item.type}}">
+          <text wx:if="{{item.type === 'attraction'}}">游乐设施</text>
+          <text wx:elif="{{item.type === 'performance'}}">表演</text>
+          <text wx:elif="{{item.type === 'restaurant'}}">餐厅</text>
+          <text wx:elif="{{item.type === 'shop'}}">商店</text>
+          <text wx:elif="{{item.type === 'restroom'}}">洗手间</text>
+          <text wx:elif="{{item.type === 'charger'}}">充电宝</text>
+          <text wx:else>{{item.type}}</text>
+        </view>
+      </view>
+      
+      <!-- 操作按钮 -->
+      <view class="action-buttons">
+        <view class="action-button" bindtap="handleFavorite">
+          <view class="icon {{isFavorite ? 'icon-favorite-active' : 'icon-favorite'}}"></view>
+          <text class="action-text">{{isFavorite ? '已藏' : '收藏'}}</text>
+        </view>
+        <view class="action-button" bindtap="handleNavigation">
+          <view class="icon icon-navigation"></view>
+          <text class="action-text">导航</text>
+        </view>
+        <view class="action-button" bindtap="handleShare">
+          <view class="icon icon-share"></view>
+          <text class="action-text">分享</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 滚动通知栏 -->
+    <view class="notification-bar" wx:if="{{item.notification}}">
+      <view class="notification-icon">📢</view>
+      <view class="notification-content">
+        <view class="notification-scroll-container">
+          <view class="notification-scroll-text {{item.notification.length <= 20 ? 'no-scroll' : ''}}">{{item.notification}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 主要信息区域 -->
+    <view class="main-info">
+      <!-- 项目标签 -->
+      <view class="tags-container" wx:if="{{item.flags && item.flags.length > 0}}">
+        <block wx:for="{{item.flags}}" wx:key="*this" wx:for-item="flag">
+          <view class="tag">{{flag}}</view>
+        </block>
+      </view>
+
+      <!-- 等待时间 (游乐设施) -->
+      <view class="wait-time-container" wx:if="{{item.type === 'attraction'}}">
+        <view class="wait-time-box {{item.colorTheme}}">
+          <view class="wait-time">{{item.waitTime}}</view>
+          <view class="wait-unit">{{item.waitUnit}}</view>
+        </view>
+        <view class="open-time">开放时间: {{item.openTime}}</view>
+      </view>
+
+      <!-- 演出时间 (表演) -->
+      <view class="show-times-container" wx:elif="{{item.type === 'performance'}}">
+        <view class="section-title">今日演出场次</view>
+        <view class="show-times-list" wx:if="{{item.formattedShowTimes && item.formattedShowTimes.length > 0}}">
+          <block wx:for="{{item.formattedShowTimes}}" wx:key="time">
+            <view class="show-time-item {{item.isFull ? 'full' : (item.isPast ? 'past' : '')}}" 
+                  bindtap="showReminderPanel" 
+                  data-show-time="{{item.time}}" 
+                  data-show-index="{{index}}" 
+                  wx:if="{{!item.isPast}}">
+              <text class="time">{{item.time}}</text>
+              <text class="status {{item.colorTheme}}">{{item.status}}</text>
+              <view class="alarm-icon">⏰</view>
+            </view>
+            <view class="show-time-item {{item.isFull ? 'full' : (item.isPast ? 'past' : '')}}" wx:else>
+              <text class="time">{{item.time}}</text>
+              <text class="status {{item.colorTheme}}">{{item.status}}</text>
+            </view>
+          </block>
+        </view>
+        <view class="no-shows" wx:else>今日暂无场次</view>
+        <view class="duration" wx:if="{{item.duration}}">演出时长: {{item.duration}}</view>
+        <view class="open-time" wx:if="{{item.openTime}}">开放时间: {{item.openTime}}</view>
+      </view>
+
+      <!-- 餐厅营业状态 (餐厅) -->
+      <view class="wait-time-container" wx:elif="{{item.type === 'restaurant'}}">
+        <view class="wait-time-box {{item.colorTheme}}">
+          <view class="wait-time">{{item.waitTime}}</view>
+          <view class="wait-unit">{{item.waitUnit}}</view>
+        </view>
+        <view class="open-time">营业时间: {{item.openTime}}</view>
+      </view>
+
+      <!-- 餐厅详细信息 -->
+      <view class="restaurant-info" wx:if="{{item.type === 'restaurant'}}">
+        <view class="info-row" wx:if="{{item.cuisine}}">
+          <view class="info-label">菜系:</view>
+          <view class="info-value">{{item.cuisine}}</view>
+        </view>
+        <view class="info-row" wx:if="{{item.price}}">
+          <view class="info-label">价格:</view>
+          <view class="info-value">{{item.price}}</view>
+        </view>
+        <view class="info-row" wx:if="{{item.additionalInfo}}">
+          <view class="info-label">优惠:</view>
+          <view class="info-value">{{item.additionalInfo}}</view>
+        </view>
+      </view>
+
+      <!-- 餐厅介绍 - 当类型为餐厅时 -->
+      <view class="description-container" wx:if="{{item.type === 'restaurant'}}">
+        <view class="section-title">餐厅介绍</view>
+        <view class="summary" wx:if="{{item.summary}}">{{item.summary}}</view>
+        <view class="detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+        <view class="detail" wx:if="{{item.description}}">{{item.description}}</view>
+        <view class="no-description" wx:if="{{!item.summary && !item.detail && !item.description}}">暂无餐厅介绍</view>
+      </view>
+
+      <!-- 餐厅菜品展示 -->
+      <view class="restaurant-dishes" wx:if="{{item.type === 'restaurant' && item.products && item.products.length > 0}}">
+        <view class="section-title">特色菜品</view>
+        <view class="dishes-container">
+          <block wx:for="{{item.products}}" wx:key="title" wx:for-item="dish">
+            <view class="dish-item">
+              <image class="dish-image" src="{{dish.cover_image}}" mode="aspectFill"></image>
+              <view class="dish-name">{{dish.title}}</view>
+            </view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 项目描述 - 当类型不是餐厅时 -->
+      <view class="description-container" wx:if="{{item.type !== 'restaurant'}}">
+        <view class="section-title" wx:if="{{item.type === 'restroom'}}">洗手间介绍</view>
+        <view class="section-title" wx:elif="{{item.type === 'charger'}}">充电宝介绍</view>
+        <view class="section-title" wx:else>项目介绍</view>
+        <view class="summary" wx:if="{{item.summary}}">{{item.summary}}</view>
+        <view class="detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+        <view class="detail" wx:if="{{item.description && !item.summary}}">{{item.description}}</view>
+        <view class="no-description" wx:if="{{!item.summary && !item.detail && !item.description}}">暂无项目介绍</view>
+      </view>
+
+      <!-- 排队时间模块 (仅游乐设施) -->
+      <view class="wait-time-history-container" wx:if="{{item.type === 'attraction' && (parkId === 'universal' || parkId === 'disney')}}">
+        <view class="section-title">排队时间</view>
+        
+        <!-- 加载中提示 -->
+        <view class="wait-time-loading" wx:if="{{!hasWaitTimeData && !waitTimeError}}">
+          <view class="loading-icon"></view>
+          <text class="loading-text">排队数据加载中...</text>
+        </view>
+        
+        <!-- 错误提示 -->
+        <view class="wait-time-error" wx:if="{{waitTimeError}}">
+          <view class="error-icon"></view>
+          <text class="error-text">{{waitTimeErrorMsg}}</text>
+        </view>
+        
+        <scroll-view scroll-x="true" class="chart-scroll-view" enhanced="true" show-scrollbar="false" scroll-into-view="hour-{{waitTimeData.current_hour}}" wx:if="{{hasWaitTimeData}}">
+          <view class="chart-container">
+            <block wx:if="{{waitTimeData}}">
+              <view wx:for="{{waitTimeData.historical_wait_times}}" wx:key="index" wx:for-index="hour" class="hour-column {{hour === waitTimeData.current_hour ? 'current-hour' : ''}}" id="hour-{{hour}}">
+                <!-- 小时标签 -->
+                <view class="hour-label">
+                  {{hour}}
+                  <text wx:if="{{hour === waitTimeData.current_hour}}" class="current-hour-tag">当前</text>
+                </view>
+                
+                <view class="bars-container">
+                  <!-- 历史排队时间柱 -->
+                  <view class="bar history-bar" style="height: {{item * 200 / maxWaitTime < 20 ? 20 : item * 200 / maxWaitTime}}rpx;">
+                  </view>
+                  
+                  <!-- 今日排队时间柱 -->
+                  <view wx:if="{{waitTimeData.today_hourly_wait_times[hour] && waitTimeData.today_hourly_wait_times[hour].wait_time >= 0}}" 
+                       class="bar today-bar" style="height: {{waitTimeData.today_hourly_wait_times[hour].wait_time * 200 / maxWaitTime < 20 ? 20 : waitTimeData.today_hourly_wait_times[hour].wait_time * 200 / maxWaitTime}}rpx;">
+                  </view>
+                </view>
+                
+                <!-- 数值标签 -->
+                <view class="wait-time-values">
+                  <view class="wait-time-value history">
+                    <text>历史: </text><text>{{utils.toInt(item)}}</text>
+                  </view>
+                  <view class="wait-time-value today" wx:if="{{waitTimeData.today_hourly_wait_times[hour] && waitTimeData.today_hourly_wait_times[hour].wait_time >= 0}}">
+                    <text>今日: </text><text>{{utils.toInt(waitTimeData.today_hourly_wait_times[hour].wait_time)}}</text>
+                  </view>
+                </view>
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+        
+        <!-- 图例 -->
+        <view class="chart-legend" wx:if="{{hasWaitTimeData}}">
+          <view class="legend-item">
+            <view class="legend-color today-color"></view>
+            <text>今日实时</text>
+          </view>
+          <view class="legend-item">
+            <view class="legend-color history-color"></view>
+            <text>历史平均</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 推荐查询 -->
+      <view class="suggested-queries" wx:if="{{item.suggestedQueries && item.suggestedQueries.length > 0}}">
+        <view class="section-title">相关问题</view>
+        <view class="queries-list">
+          <block wx:for="{{item.suggestedQueries}}" wx:key="*this" wx:for-item="query">
+            <view class="query-item" bindtap="handleQueryClick" data-query="{{query}}">
+              {{query}}
+            </view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 错误提示 -->
+  <view class="error-container" wx:if="{{!loading && !item}}">
+    <view class="error-icon"></view>
+    <text>无法加载项目信息</text>
+    <button class="back-button" bindtap="navigateBack">返回</button>
+  </view>
+
+  <!-- 提醒面板 -->
+  <view class="reminder-overlay" wx:if="{{showReminderPanel}}" bindtap="hideReminderPanel">
+    <view class="reminder-panel" catchtap="noop">
+      <view class="reminder-header">
+        <text class="reminder-title">设置演出提醒</text>
+        <text class="close-btn" bindtap="hideReminderPanel">×</text>
+      </view>
+      
+      <view class="reminder-content">
+        <view class="reminder-info">
+          <text class="show-name">{{item.name}}</text>
+          <text class="show-time">场次时间：{{selectedShowTime}}</text>
+        </view>
+        
+        <view class="reminder-form">
+          <view class="form-item">
+            <text class="form-label">提醒日期</text>
+            <picker mode="date" value="{{reminderDate}}" bindchange="onDateChange" start="{{todayDate}}" end="{{maxDate}}">
+              <view class="form-input">{{reminderDate}}</view>
+            </picker>
+          </view>
+          
+          <view class="form-item">
+            <text class="form-label">提前时间</text>
+            <picker range="{{advanceTimeOptions}}" range-key="text" value="{{advanceTimeIndex}}" bindchange="onAdvanceTimeChange">
+              <view class="form-input">{{advanceTimeOptions[advanceTimeIndex].text}}</view>
+            </picker>
+          </view>
+        </view>
+        
+        <view class="reminder-buttons">
+          <button class="cancel-btn" bindtap="hideReminderPanel">取消</button>
+          <button class="confirm-btn" bindtap="confirmReminder">确定</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view> 

@@ -1,0 +1,165 @@
+<view class="screen-container {{styleType === 'male' ? 'male-style' : (styleType === 'female' ? 'female-style' : (styleType === 'clean' ? 'clean-style' : 'neutral-style'))}}">
+  <view class="page-mask" wx:if="{{showFavorites}}"></view>
+  <!-- 游乐场选择器 - 与首页保持一致 -->
+  <view class="park-selector">
+    <picker bindchange="onParkChange" value="{{currentParkIndex}}" range="{{parks}}" range-key="name">
+      <view class="park-picker">
+        <text class="current-park">{{currentPark}}</text>
+        <text class="fa fa-chevron-down picker-arrow"></text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 游乐场综合信息大屏 -->
+  <view class="park-dashboard">
+    <view class="dashboard-header">
+      <view class="park-name-container">
+        <text class="park-name">{{currentPark || '环球影城'}}</text>
+        <view class="park-status" style="background-color: {{parkStatus.crowdColor || 'rgba(82, 196, 26, 0.9)'}}">
+          {{parkStatus.crowdLevel || '空闲'}}
+        </view>
+      </view>
+      <view class="park-time-weather">
+        <view class="operating-hours {{isParkCurrentlyOpen ? 'open' : 'closed'}}">
+          <text class="hours-icon">🕐</text>
+          <text class="hours-text">{{currentParkOperatingHours || '营运时间'}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 简化的仪表板内容 -->
+    <view class="dashboard-flex-container">
+      <view class="dashboard-metrics">
+        <view class="metric-item">
+          <text class="metric-label">平均等待</text>
+          <text class="metric-value">{{parkStatus.averageWaitTime || '0'}}分钟</text>
+        </view>
+        <view class="metric-item">
+          <text class="metric-label">开放项目</text>
+          <text class="metric-value">{{parkStatus.openRides || '0'}}/{{parkStatus.totalRides || '0'}}</text>
+        </view>
+      </view>
+      
+      <view class="dashboard-content-row">
+        <!-- 我的收藏 -->
+        <view class="dashboard-section">
+          <view class="column-title">
+            <text class="title-icon">⭐</text>
+            <text>我的收藏</text>
+          </view>
+          <view class="attractions-content">
+            <block wx:for="{{favoriteItems}}" wx:key="index">
+              <view class="hot-attraction" bindtap="handleDashboardItemClick" data-item="{{item}}" data-type="{{item.type}}">
+                <view class="attraction-name">{{item.name}}</view>
+                <view class="attraction-info-right">
+                  <view class="attraction-distance" wx:if="{{item.distanceText}}">{{item.distanceText}}</view>
+                  <view class="attraction-wait" style="background-color: {{item.colorTheme === 'green' ? 'rgba(83, 193, 120, 0.9)' : (item.colorTheme === 'orange' ? 'rgba(245, 166, 35, 0.9)' : (item.colorTheme === 'red' ? 'rgba(230, 67, 64, 0.9)' : 'rgba(136, 136, 136, 0.9)'))}}">{{item.waitTime}}{{item.waitUnit}}</view>
+                </view>
+              </view>
+            </block>
+            <view class="no-favorites" wx:if="{{!favoriteItems || favoriteItems.length === 0}}">
+              <text>暂无收藏</text>
+            </view>
+          </view>
+        </view>
+        
+        <!-- 热门项目 -->
+        <view class="dashboard-section">
+          <view class="column-title">
+            <text class="title-icon">🔥</text>
+            <text>热门项目</text>
+          </view>
+          <view class="attractions-content">
+            <block wx:for="{{hotAttractions}}" wx:key="index">
+              <view class="hot-attraction" bindtap="handleDashboardItemClick" data-item="{{item}}" data-type="{{item.type}}">
+                <view class="attraction-name">{{item.name}}</view>
+                <view class="attraction-info-right">
+                  <view class="attraction-distance" wx:if="{{item.distanceText}}">{{item.distanceText}}</view>
+                  <view class="attraction-wait" style="background-color: {{item.colorTheme === 'green' ? 'rgba(83, 193, 120, 0.9)' : (item.colorTheme === 'orange' ? 'rgba(245, 166, 35, 0.9)' : (item.colorTheme === 'red' ? 'rgba(230, 67, 64, 0.9)' : 'rgba(136, 136, 136, 0.9)'))}}">{{item.waitTime}}{{item.waitUnit}}</view>
+                </view>
+              </view>
+            </block>
+          </view>
+          <!-- 展开/收起按钮 -->
+          <view class="expand-button" wx:if="{{hotAttractionsAll.length > 3}}" bindtap="toggleHotAttractions">
+            <text class="expand-text">{{hotAttractionsExpanded ? '收起' : '展开更多'}} ({{hotAttractionsAll.length}})</text>
+            <text class="expand-icon {{hotAttractionsExpanded ? 'expanded' : ''}}">▼</text>
+          </view>
+        </view>
+        
+        <!-- 即将演出 -->
+        <view class="dashboard-section">
+          <view class="column-title">
+            <text class="title-icon">🎭</text>
+            <text>下一场演出</text>
+          </view>
+          <view class="shows-content">
+            <block wx:for="{{upcomingShows}}" wx:key="index">
+              <view class="upcoming-show" bindtap="handleDashboardItemClick" data-item="{{item}}" data-type="{{item.type}}">
+                <view class="show-name">{{item.name}}</view>
+                <view class="attraction-info-right">
+                  <view class="attraction-distance" wx:if="{{item.distanceText}}">{{item.distanceText}}</view>
+                  <view class="attraction-wait" style="background-color: {{item.colorTheme === 'green' ? 'rgba(83, 193, 120, 0.9)' : (item.colorTheme === 'orange' ? 'rgba(245, 166, 35, 0.9)' : (item.colorTheme === 'red' ? 'rgba(230, 67, 64, 0.9)' : 'rgba(136, 136, 136, 0.9)'))}}">{{item.waitTime}}{{item.waitUnit}}</view>
+                </view>
+              </view>
+            </block>
+          </view>
+          <!-- 展开/收起按钮 -->
+          <view class="expand-button" wx:if="{{upcomingShowsAll.length > 3}}" bindtap="toggleUpcomingShows">
+            <text class="expand-text">{{upcomingShowsExpanded ? '收起' : '展开更多'}} ({{upcomingShowsAll.length}})</text>
+            <text class="expand-icon {{upcomingShowsExpanded ? 'expanded' : ''}}">▼</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <view class="dashboard-notice" wx:if="{{notification}}">
+      <text class="notice-icon">📢</text>
+      <text class="notice-text">{{notification}}</text>
+    </view>
+  </view>
+
+  <view class="container">
+    <!-- 删除了筛选条和数据类型展示区域 -->
+  </view>
+
+  <!-- 收藏浮层 -->
+  <view class="favorites-mask" wx:if="{{showFavorites}}" bindtap="closeFavoritesPopup" catchtouchmove="preventTouchMove">
+    <view class="favorites-popup" catchtap="preventBubble">
+      <view class="favorites-container">
+        <view class="favorites-main">
+          <view class="favorites-title">我的收藏</view>
+          <scroll-view class="favorites-list" scroll-y>
+            <view class="favorite-item" wx:for="{{favorites}}" wx:key="id">
+              <view class="favorite-image">
+                <image src="{{item.image}}" mode="aspectFill"></image>
+                <view class="favorite-name">{{item.name}}</view>
+                <view class="favorite-star" bindtap="toggleFavorite" data-item="{{item}}">
+                  <text class="star-icon active">★</text>
+                </view>
+                <view class="detail-button" bindtap="handleViewDetails" data-item="{{item}}">
+                  <text class="detail-icon">i</text>
+                </view>
+                <view class="queue-bubble {{item.queueTime < 30 ? 'low' : (item.queueTime < 50 ? 'medium' : 'high')}}">
+                  {{item.queueTime}}
+                </view>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+        <view class="favorites-sidebar">
+          <view class="favorites-title">推荐查询</view>
+          <view class="recommend-queries">
+            <view class="recommend-title">热门搜索</view>
+            <view class="query-item" bindtap="searchQuery" data-query="有哪些过山车">有哪些过山车</view>
+            <view class="query-item" bindtap="searchQuery" data-query="室内项目有哪些">室内项目有哪些</view>
+            <view class="query-item" bindtap="searchQuery" data-query="支持优速通的项目">支持优速通的项目</view>
+            <view class="query-item" bindtap="searchQuery" data-query="今日演出时间表">今日演出时间表</view>
+            <view class="query-item" bindtap="searchQuery" data-query="明天早上10点到，对我的收藏夹项目进行规划。">明天早上10点到，规划下我的收藏夹</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+</view> 
